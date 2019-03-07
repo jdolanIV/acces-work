@@ -2,7 +2,14 @@
 //sample program to configure the port mode on ACCES PCI Serial Communications
 //Products. 
 //This sample is provided to show how to programaticcly configure the ports
-//on ACCES PCI Serial Communications Products using sysfs which should be available
+//on ACCES PCI Serial Communications Products using sysfs which should be 
+//available on any current Linux system.
+//For more information about ACCES PCI Serial Communications cards please see 
+//the README.md
+//For more information on sysfs see man 5 sysfs or 
+//https://en.wikipedia.org/wiki/Sysfs
+//
+*/
 
 
 
@@ -60,17 +67,10 @@
 
 #define UART_CONFIG 0xb4
 
-int get_dev_path(char *dev_path);
-int get_num_ports(char *dev_path);
-void set_uart_four_port(u_int32_t *reg, u_int8_t mode, int port);
-void set_uart_eight_port(u_int32_t *reg, u_int8_t mode, int port);
-
-
 //search /sys/devices for directories that contain ACCES pci devices
 //writes a string for each path to dev_paths array. eg
 //"/sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/"
-//For more information on sysfs see 
-//https://en.wikipedia.org/wiki/Sysfs
+//when calling send in NULL for path
 void dev_paths_get(char dev_paths[][PATH_MAX], int max_paths, char *path)
 {
     DIR *dp;
@@ -92,7 +92,6 @@ void dev_paths_get(char dev_paths[][PATH_MAX], int max_paths, char *path)
 
     if ((dp = opendir(path)) == NULL)
     {
-        //printf("%s:Could not open directory path = %s\n", __FUNCTION__, path);
         return;
     }
 
@@ -101,6 +100,8 @@ void dev_paths_get(char dev_paths[][PATH_MAX], int max_paths, char *path)
     while ((entry = readdir(dp)) != NULL)
     {
          lstat(entry->d_name, &statbuf);
+         //S_ISLNK didn't work on test system. Since sysfs contains circular 
+         //links we don't want to follow them.
          if(S_ISDIR(statbuf.st_mode) /*&& !(S_ISLNK(statbuf.st_mode))*/)
          {
              if(strcmp(".",entry->d_name) == 0 ||
@@ -108,7 +109,7 @@ void dev_paths_get(char dev_paths[][PATH_MAX], int max_paths, char *path)
                 {
                     continue;
                 }
-            if (init) 
+            if (init)
             {
                 if (strncmp(entry->d_name, "pci0000", 7) == 0)
                 {
@@ -123,11 +124,10 @@ void dev_paths_get(char dev_paths[][PATH_MAX], int max_paths, char *path)
                     strcpy(wd_path, path);
                     strcat(wd_path, "/");
                     strcat(wd_path, entry->d_name);
-                    //S_ISLINK() macro doesn't work on test systems
+                    //S_ISLINK() macro didn't work on test systems
+                    //readlink() returns -1 if it's not a link
                     if (readlink(wd_path, link_path, sizeof(link_path)) == -1)
                         dev_paths_get(dev_paths, max_paths, wd_path);
-                    // else
-                    //     printf("Pruning %s\n", wd_path);
             }
             
          }
@@ -482,4 +482,3 @@ int main (int argc, char **argv)
     }
     return 0;
 }
-
