@@ -1,0 +1,387 @@
+From d2e1e4c830041beafe35f2d2fb76ed40554edafb Mon Sep 17 00:00:00 2001
+From: Jay Dolan <jay.dolan@accesio.com>
+Date: Sun, 17 Feb 2019 09:35:54 -0800
+Subject: [PATCH] Working patch for providing support for higher baud rates in
+ linux kernel when using Pericom chips.
+
+The plan for this patch is that it will be submitted to the kernel devs
+as an RFC on supporting higher baud rates on the Pericom chips
+
+The bulk of the line changes in 8250_pci.c are already in the pipeline
+for the kernel. The change that splits the pci_pericom_setup() is part
+of what we will be requesting feedback on from the kernel devs. The
+defines for the PCI ids are not visible where the function is defined.
+
+The addition of acces_do_set_divisor() is the area of most concern for
+functionality and robustness concerns.
+
+Code formatting is enforced by the checkpatch.pl script that is a
+part of the linux kernel source tree https://github.com/torvalds/linux.git
+
+More information is available at
+https://www.kernel.org/doc/html/v4.10/process/coding-style.html
+
+The patch already passes checkpatch.pl script except for missing the
+signed off statement.
+---
+ drivers/tty/serial/8250/8250_pci.c  | 179 ++++++++++++++++++++++++----
+ drivers/tty/serial/8250/8250_port.c |  37 ++++++
+ include/linux/serial_8250.h         |   2 +
+ 3 files changed, 198 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/tty/serial/8250/8250_pci.c b/drivers/tty/serial/8250/8250_pci.c
+index 48bd694a5fa1..3280efffe000 100644
+--- a/drivers/tty/serial/8250/8250_pci.c
++++ b/drivers/tty/serial/8250/8250_pci.c
+@@ -1339,7 +1339,31 @@ static int pci_pericom_setup(struct serial_private *priv,
+ 	else
+ 		offset += idx * board->uart_offset;
+ 
+-	if (idx==3)
++	maxnr = (pci_resource_len(priv->dev, bar) - board->first_offset) >>
++		(board->reg_shift + 3);
++
++	if (board->flags & FL_REGION_SZ_CAP && idx >= maxnr)
++		return 1;
++
++	port->port.set_divisor = acces_do_set_divisor;
++
++	return setup_port(priv, port, bar, offset, board->reg_shift);
++
++}
++
++static int pci_pericom_setup_four_at_eight(struct serial_private *priv,
++		  const struct pciserial_board *board,
++		  struct uart_8250_port *port, int idx)
++{
++	unsigned int bar, offset = board->first_offset, maxnr;
++
++	bar = FL_GET_BASE(board->flags);
++	if (board->flags & FL_BASE_BARS)
++		bar += idx;
++	else
++		offset += idx * board->uart_offset;
++
++	if (idx == 3)
+ 		offset = 0x38;
+ 
+ 	maxnr = (pci_resource_len(priv->dev, bar) - board->first_offset) >>
+@@ -1348,7 +1372,10 @@ static int pci_pericom_setup(struct serial_private *priv,
+ 	if (board->flags & FL_REGION_SZ_CAP && idx >= maxnr)
+ 		return 1;
+ 
++	port->port.set_divisor = acces_do_set_divisor;
++
+ 	return setup_port(priv, port, bar, offset, board->reg_shift);
++
+ }
+ 
+ static int
+@@ -1995,7 +2022,7 @@ static struct pci_serial_quirk pci_serial_quirks[] __refdata = {
+ 		.device		= PCI_DEVICE_ID_PERICOM_PI7C9X7954,
+ 		.subvendor	= PCI_ANY_ID,
+ 		.subdevice	= PCI_ANY_ID,
+-		.setup		= pci_pericom_setup,
++		.setup		= pci_pericom_setup_four_at_eight,
+ 	},
+ 	/*
+ 	 * PLX
+@@ -2027,6 +2054,118 @@ static struct pci_serial_quirk pci_serial_quirks[] __refdata = {
+ 		.setup		= pci_default_setup,
+ 		.exit		= pci_plx9050_exit,
+ 	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SDB,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_COM_4S,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM232_4DB,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_COM232_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SMDB,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_COM_4SM,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_ICM422_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_ICM485_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_DEVICE_ID_ACCESIO_PCIE_ICM_4S,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_ICM232_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_MPCIE_ICM232_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM422_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM485_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM232_4,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SM,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_DEVICE_ID_ACCESIO_PCIE_ICM_4SM,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup_four_at_eight,
++	},
++	{
++		.vendor     = PCI_VENDOR_ID_ACCESIO,
++		.device     = PCI_ANY_ID,
++		.subvendor  = PCI_ANY_ID,
++		.subdevice  = PCI_ANY_ID,
++		.setup      = pci_pericom_setup,
++	},
+ 	/*
+ 	 * SBS Technologies, Inc., PMC-OCTALPRO 232
+ 	 */
+@@ -4575,10 +4714,10 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 	 */
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_2SDB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_COM_2S,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SDB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+@@ -4587,10 +4726,10 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM232_2DB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_COM232_2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM232_4DB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+@@ -4599,10 +4738,10 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_2SMDB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_COM_2SM,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SMDB,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+@@ -4611,13 +4750,13 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_ICM485_1,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7951 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_ICM422_2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_ICM485_2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_ICM422_4,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+@@ -4626,16 +4765,16 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM_2S,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM_4S,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM232_2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_MPCIE_ICM232_2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM232_4,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7954 },
+@@ -4644,13 +4783,13 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM_2SM,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7954 },
++		pbn_pericom_PI7C9X7952 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM422_4,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7958 },
++		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM485_4,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7958 },
++		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM422_8,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7958 },
+@@ -4659,19 +4798,19 @@ static const struct pci_device_id serial_pci_tbl[] = {
+ 		pbn_pericom_PI7C9X7958 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM232_4,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7958 },
++		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM232_8,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7958 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_4SM,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7958 },
++		pbn_pericom_PI7C9X7954 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_COM_8SM,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 		pbn_pericom_PI7C9X7958 },
+ 	{	PCI_VENDOR_ID_ACCESIO, PCI_DEVICE_ID_ACCESIO_PCIE_ICM_4SM,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-		pbn_pericom_PI7C9X7958 },
++		pbn_pericom_PI7C9X7954 },
+ 	/*
+ 	 * Topic TP560 Data/Fax/Voice 56k modem (reported by Evan Clarke)
+ 	 */
+diff --git a/drivers/tty/serial/8250/8250_port.c b/drivers/tty/serial/8250/8250_port.c
+index d2f3310abe54..050aed53855d 100644
+--- a/drivers/tty/serial/8250/8250_port.c
++++ b/drivers/tty/serial/8250/8250_port.c
+@@ -2611,6 +2611,43 @@ void serial8250_do_set_divisor(struct uart_port *port, unsigned int baud,
+ }
+ EXPORT_SYMBOL_GPL(serial8250_do_set_divisor);
+ 
++void
++acces_do_set_divisor(struct uart_port *port, unsigned int baud,
++			       unsigned int quot, unsigned int quot_frac)
++{
++	int scr; //sample clock register
++	int lcr;
++	int actual_baud;
++	int tolerance;
++
++	//check for baud rates that are reachable with valid values of the scr
++	//register other than one.
++	for (scr = 5 ; scr <= 15 ; scr++) {
++		actual_baud = 921600 * 16 / scr;
++		tolerance = actual_baud / 50;
++
++		if ((baud < actual_baud + tolerance) &&
++			(baud > actual_baud - tolerance)) {
++			//scr register needs to be set to 16 - scr
++			scr = 16 - scr;
++
++			lcr = serial_port_in(port, UART_LCR);
++			serial_port_out(port, UART_LCR, lcr | 0x80);
++
++			serial_port_out(port, UART_DLL, 1);
++			serial_port_out(port, UART_DLM, 0);
++			serial_port_out(port,  2, scr); //don't see a fit in
++							//serial_reg.h
++			serial_port_out(port, UART_LCR, lcr);
++			return;
++		} else if (baud > actual_baud) {
++			break;
++		}
++	}
++	serial8250_do_set_divisor(port, baud, quot, quot_frac);
++}
++EXPORT_SYMBOL_GPL(acces_do_set_divisor);
++
+ static void serial8250_set_divisor(struct uart_port *port, unsigned int baud,
+ 				   unsigned int quot, unsigned int quot_frac)
+ {
+diff --git a/include/linux/serial_8250.h b/include/linux/serial_8250.h
+index 5a655ba8d273..206c6fb5fb2d 100644
+--- a/include/linux/serial_8250.h
++++ b/include/linux/serial_8250.h
+@@ -164,6 +164,8 @@ extern void serial8250_do_shutdown(struct uart_port *port);
+ extern void serial8250_do_pm(struct uart_port *port, unsigned int state,
+ 			     unsigned int oldstate);
+ extern void serial8250_do_set_mctrl(struct uart_port *port, unsigned int mctrl);
++extern void acces_do_set_divisor(struct uart_port *port, unsigned int baud,
++			       unsigned int quot, unsigned int quot_frac);
+ extern void serial8250_do_set_divisor(struct uart_port *port, unsigned int baud,
+ 				      unsigned int quot,
+ 				      unsigned int quot_frac);
+-- 
+2.20.1
+

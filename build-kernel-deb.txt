@@ -1,0 +1,9 @@
+As I keep losing this….
+Creating a .deb kernel package from a vanilla kernel.org kernel :
+wget https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.4.24.tar.xz
+tar -xf linux-4.4.24.tar.xz
+cd linux-4.4.24
+cp /boot/config-whatever .config
+Optionally: edit and set: CONFIG_DEBUG_INFO=n to stop the *dbg* package being generated
+make olddefconfig
+make deb-pkg -j6 LOCALVERSION=-dg1
