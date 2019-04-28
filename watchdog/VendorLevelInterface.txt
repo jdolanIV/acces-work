@@ -1,0 +1,151 @@
+
+
+
+Vendor Request 0x40 WRITE:
+  Every Write request Pets the Watchdog.
+  
+  IF Write includes buffer of data, the only valid data is a TWDGConfig struct:
+	#define WDGCONFIGREV 1
+	struct sWDGConfig_rev1 
+	      {
+	          BYTE Length;    // = sizeof(struct WDG);
+	          BYTE Rev;       // = WDGCONFIGREV;
+	          BYTEBOOL Enabled;
+	          WORD SecondsBeforeBark;
+	          BYTE WDG_RESET_ON_BARK;// NYI -- forced TRUE
+	          BYTE FET_ON_BARK;// NYI
+	          BYTE TTL_ON_BARK;// NYI
+	          BYTE BUZZER_ON_BARK;
+	          BYTE RELAY_ON_BARK; // NYI
+	          BYTE RED_ON_BARK;// NYI
+	          BYTE GRN_ON_BARK;// NYI
+	          BYTE BLU_ON_BARK;// NYI
+	          BYTE Null;      // == 0
+	      };
+	typedef struct sWDGConfig_rev1 TWDGConfig;
+	
+  IF Write includes no buffer, the following functions are available, indexed by Index:
+  switch ( Index )
+  {
+	case 0x0002:  Card_SoftReset(); break; // re-initialize to power-on state including DIO
+	case 0x0044:  Watchdog_disable(Value); break; // bool Value true=enable, false=disable
+	case 0x0052:  Watchdog_SoftReset(); break;  // reset only watchdog related things (turn off speaker)
+	case 0x0054:  SetWatchdogTimeout(Value); break; // Value = seconds (might be 10ths of seconds, sorry)
+  }
+  
+
+
+Customer wants 
+set watchdog period
+start watchdog
+kick watchdog
+stop watchdog
+configure reset line low time
+read temp
+read humidity
+
+These map into the firmware features like so:
+
+GenericVendorWrite(DeviceIndex, VendorRequest, Value, Index, Len, Buf)  ==> [W VendorRequest, Value, Index] [Len=data data data]
+   VR    V  Index
+[W 0x40, 0, 0x0050] // kick watchdog is *any* write to 0x40, but Index==0x0050 is "NOP", so *just* pets
+[W 0x40, 0, 0x0044] // stop watchdog
+[W 0x40, 1, 0x0044] // start watchdog
+[W 0x40, S, 0x0054] // set watchdog period as "S" seconds
+
+[R 0x10, 0, 0x0001] // READ TEMP AND HUMIDITY, see struct below
+
+There is NO ability to configure reset line low time yet.  I will be adding it this week.  It will be:
+[W 0x40, D, 0xxxxx] // configure reset active duration as "D", units TBD, Index TBD
+
+
+[W 0x40, 0, 0x0002] // card re-init
+[W 0x40, 0, 0x0052] // Watchdog re-init
+
+  
+  
+  
+  
+
+
+
+
+Vendor Request 0x10 & 0x11 READ: 
+  Returns some data, always pass Index=0x0001.  If you pass Index LSB = 0x00 instead of 0x01 the DO_READBACK byte doesn't exist, so the lengths get 1 shorter
+  {
+      BYTE Length;
+      BYTE DI_Raw;
+      WORD USBFRAME; 
+      BYTE ReasonCode;     
+      BYTE DI_Raw; 
+      BYTE DI_Debounced;
+      BYTE DI_Rising; 
+      BYTE DI_Falling;
+  
+      WORD Temp_Counts;
+      WORD Humidity_Counts; 
+      WORD AD0_Counts; 
+      WORD AD1_Counts;
+      WORD AD2_Counts;
+      WORD AD3_Counts;
+
+      BYTE DI_Changes;
+      BYTE DI_Raw_Changes;
+      BYTE DI_Rising_CoS_Enabled; 
+      BYTE DI_Rising_CoS_Occurred;
+      BYTE DI_Falling_CoS_Enabled;
+      BYTE DI_Falling_CoS_Occurred;
+
+      BYTE DO_READBACK;
+   }
+     
+     
+      BYTE DO_READBACK byte contains the following:
+       {
+         BYTE dig = 0;
+         dig |= DigOut0 ? 1 : 0;
+         dig |= FET0 ? 2 : 0;
+         dig |= FET1 ? 4 : 0;
+         dig |= Relay0 ? 8 : 0;
+         dig |= DigOut1 ? 0x10 : 0;
+       }
+
+
+
+
+  
+  
+  
+  
+Vendor Request 0x40 READ:  "Read Watchdog State", useful for debugging
+returns two structs preceded by length byte:
+
+	  BYTE TOTAL_LENGTH;
+          BYTE Length;    // = sizeof(struct WDG);
+          BYTE Rev;       // = WDGCONFIGREV = 1;
+          BYTEBOOL Enabled;
+          WORD SecondsBeforeBark;
+          BYTE WDG_RESET_ON_BARK;// NYI -- forced TRUE
+          BYTE FET_ON_BARK;// NYI
+          BYTE TTL_ON_BARK;// NYI
+          BYTE BUZZER_ON_BARK;
+          BYTE RELAY_ON_BARK; // NYI
+          BYTE RED_ON_BARK;// NYI
+          BYTE GRN_ON_BARK;// NYI
+          BYTE BLU_ON_BARK;// NYI
+	  BYTE Null;      // == 0 // end of config struct
+          BYTE statusLength;  // start of status struct
+          BYTE Rev; // = WDGSTATUSREV = 1
+          BYTE TemperatureLSB;
+          BYTE TemperatureMSB;
+          BYTE StatusByte501;
+          BYTE SecondsLSB;
+          BYTE SecondsMSB;
+          BYTE SecondsSinceLastPetLSB;
+          BYTE SecondsSinceLastPetMSB;
+          BYTE Null;
+
+
+The new firmware feature, "Set Watchdog Reset Duration" is in.
+
+[W 0x40 LSB(Value)=duration, Index = 0x0045]
