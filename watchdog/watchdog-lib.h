@@ -16,7 +16,7 @@ void aio_watchdog_library_term();
  * card_index starts at 0. If an invlid card_index is passed in it will print
  * an error message to stdout and return -1
  * ****************************/
-int aio_watchdog_reset(int card_index);
+int aio_watchdog_reinit(int card_index);
 int aio_watchdog_period_set (int card_index, int s);
 int aio_watchdog_start (int card_index);
 int aio_watchdog_pet (int card_index);
