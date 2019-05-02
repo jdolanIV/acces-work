@@ -71,7 +71,8 @@ int aio_watchdog_library_init()
 		for ( i = 0 ; i < device_count ; i++ )
 		{
 			libusb_get_device_descriptor(device_list[i], &usb_descriptor);
-			if ((usb_descriptor.idVendor == 0x1605) && (usb_descriptor.idProduct == 0x8080))
+			if ((usb_descriptor.idVendor == 0x1605) && 
+				((usb_descriptor.idProduct == 0x8080) || (usb_descriptor.idProduct == 0x8081)))
 			{
 				num_cards++;
 			}
@@ -230,7 +231,7 @@ int aio_watchdog_humidity_read (int card_index, double *humidity)
 	aio_watchdog_read_status(card_index, &stat);
 	if (0 == status)
 	{
-		*humidity = 125/65536 * stat.r.Humidity_Counts - 6;
+		*humidity = 125.0/65536.0 * stat.r.Humidity_Counts - 6;
 	}
 	return status;
 }
