@@ -89,7 +89,11 @@ int aio_watchdog_library_init()
 				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 				status = libusb_claim_interface(watchdog_card_list[opened], 0);
 				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
+				//enable ADC
+				status = libusb_control_transfer(watchdog_card_list[opened], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, 0x1, 0x1, NULL, 0, 0);
+				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 				if (0 == status) opened++;
+				
 			}
 		}
 		watchdog_library_init = 1;
@@ -106,6 +110,8 @@ void aio_watchdog_library_term()
 		watchdog_library_init = 0;
 		for ( i = 0 ; i < num_cards ; i++ )
 		{
+			status = libusb_control_transfer(watchdog_card_list[i], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, 0x0, 0x1, NULL, 0, 0);
+			aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 			status = libusb_release_interface(watchdog_card_list[i], 0);
 			aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 			libusb_close(watchdog_card_list[i]);
