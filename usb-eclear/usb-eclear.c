@@ -123,7 +123,7 @@ int main (int argc, char **argv)
 
     printf("name is %s", name);
   }
-
+#if 0
   {
     char zero_buff[0x2000] = {0};
     char ones_buff[0x2000];
@@ -143,16 +143,18 @@ int main (int argc, char **argv)
     if(erase_pnp)
     {
       length = 0x8;
-      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&rand_buff[0x8], &length);
-      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&ones_buff[0x8], &length);
-      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&zero_buff[0x8], &length);
+      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&rand_buff[0], &length);
+      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&zero_buff[0], &length);
+      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&ones_buff[0], &length);
+      GenericVendorWrite(device_index, 0xa2, 0, (unsigned long *)&zero_buff[0], &length);
     }
 #endif
 
     if(!no_erase_bulk)
     {
-      length = 0x1def - 0x8;
+      length = 0x1df0 - 0x8;
       GenericVendorWrite(device_index, 0xa2, 0x8, 0,  (unsigned long *)&rand_buff[0x8], &length);
+      GenericVendorWrite(device_index, 0xa2, 0x8, 0,  (unsigned long *)&zero_buff[0x8], &length);
       GenericVendorWrite(device_index, 0xa2, 0x8, 0,  (unsigned long *)&ones_buff[0x8], &length);
       GenericVendorWrite(device_index, 0xa2, 0x8, 0,  (unsigned long *)&zero_buff[0x8], &length);
     }
@@ -160,8 +162,9 @@ int main (int argc, char **argv)
 #if ALLOW_DESTRUCTIVE_WRITES
     if(erase_serial_num)
     {
-      length = 0x1dff - 0x1df0;
+      length = 0x1e00 - 0x1df0;
       GenericVendorWrite(device_index, 0xa2, 0x1df0, 0, (unsigned long *)&rand_buff[0x1df0], &length);
+      GenericVendorWrite(device_index, 0xa2, 0x1df0, 0, (unsigned long *)&zero_buff[0x1df0], &length);
       GenericVendorWrite(device_index, 0xa2, 0x1df0, 0, (unsigned long *)&ones_buff[0x1df0], &length);
       GenericVendorWrite(device_index, 0xa2, 0x1df0, 0, (unsigned long *)&zero_buff[0x1df0], &length);
     }
@@ -169,11 +172,13 @@ int main (int argc, char **argv)
 
     if(!no_erase_user)
     {
-      length = 0x1fff - 0x1e00;
+      length = 0x2000 - 0x1e00;
       GenericVendorWrite(device_index, 0xa2, 0x1e00, 0, (unsigned long *)&rand_buff[0x1e00], &length);
+      GenericVendorWrite(device_index, 0xa2, 0x1e00, 0, (unsigned long *)&zero_buff[0x1e00], &length);
       GenericVendorWrite(device_index, 0xa2, 0x1e00, 0, (unsigned long *)&ones_buff[0x1e00], &length);
       GenericVendorWrite(device_index, 0xa2, 0x1e00, 0, (unsigned long *)&zero_buff[0x1e00], &length);
     }
 
   }
+#endif
 }
