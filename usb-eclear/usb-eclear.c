@@ -47,7 +47,8 @@ int main (int argc, char **argv)
   int no_erase_bulk = 0;
   int erase_serial_num = 0;
   int no_erase_user = 0;
-  unsigned long device_index = 0;
+  unsigned long device_index = diOnly;
+  int args_parsed = 0;
   
 
   struct option long_options[] = 
@@ -63,42 +64,51 @@ int main (int argc, char **argv)
   {
     current_option = getopt_long(argc, argv, "absu", long_options, &option_index);
 
-    switch(current_option)
+    if (current_option != -1)
     {
-      case 'a':
+      switch(current_option)
+      {
+        case 'a':
 #if ALLOW_DESTRUCTIVE_WRITES
-        erase_pnp = 1;
+          erase_pnp = 1;
 #endif 
-        break;
+          break;
 
-      case 'b':
-        no_erase_bulk = 1;
-        break;
-      case 's':
+        case 'b':
+          no_erase_bulk = 1;
+          break;
+        case 's':
 #if ALLOW_DESTRUCTIVE_WRITES
-        erase_serial_num = 1;
+          erase_serial_num = 1;
 #endif
-        break;
-      case 'u':
-        no_erase_user = 1;
-        break;
-      case '?':
-        print_usage();
-    };
+          break;
+        case 'u':
+          no_erase_user = 1;
+          break;
+        case '?':
+          print_usage();
+          return -1;
+      };
+      args_parsed++;
+    }
   } while (current_option != -1);
 
-  // if (option_index <= argc)
-  // {
-  //   device_index = strtoul(argv[option_index - 1], NULL, 0);
-  // }
-
-  printf("option_index = %d\n", option_index);
+   if (args_parsed == argc - 2) //getopt_long was not behaving according to what
+                                //the man page said it would. option_index was
+                                //not being set as described so I did this.
+   {
+     device_index = strtoul(argv[argc - 1], NULL, 0);
+   }
+  printf("args_parsed = %d\n", args_parsed);
   printf("argc = %d\n", argc);
   printf("erase_pnp = %d\n", erase_pnp);
   printf("no-erase-bulk = %d\n", no_erase_bulk);
   printf("erase_serial_num = %d\n", erase_serial_num);
   printf("no_erase_user = %d\n", no_erase_user);
   printf("device_index = 0x%lx\n", device_index);
+  printf("option_index = 0x%x\n", option_index);
+
+  return -1;
 
   { //init AIOUSB and verify we can talk to a device at given index
     AIORET_TYPE aiousb_status;
