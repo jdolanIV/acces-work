@@ -4,13 +4,21 @@
 #include <fcntl.h>
 #include "aiousb.h"
 
-#define err_print(fmt, ...) \
-        do { printf ("%s:%d:%s(): " fmt, __FILE__, \
-                                __LINE__, __func__, ##__VA_ARGS__); } while (0)
-                                
+#define err_print(fmt, ...)                    \
+  do                                           \
+  {                                            \
+    printf("%s:%d:%s(): " fmt, __FILE__,       \
+           __LINE__, __func__, ##__VA_ARGS__); \
+  } while (0)
 
+/******************************************************************************
+ * Only uncomment below if you are really sure. Overwriting the plug and play 
+ * area of the device will render the device unusable. Overwriting the serial 
+ * number of the device is not recommended and could void the warranty.
+ * ***************************************************************************/
+//#define ALLOW_DESTRUCTIVE_WRITES 1
 
-void print_usage ()
+void print_usage()
 {
   printf("Usage: usb-eclear [options] [device-index]\n");
   printf("Where: options :=\n");
@@ -37,12 +45,9 @@ void print_usage ()
   printf("\n\n");
   printf("       device-index := The device index to erase as passed to the aiousb\n");
   printf("          library. Default is 'only'\n");
-  
-
 }
 
 #define CHUNK_LENGTH 0x100
-
 void do_write(unsigned long device_index, unsigned short start, unsigned long length)
 {
   unsigned long status;
@@ -59,33 +64,46 @@ void do_write(unsigned long device_index, unsigned short start, unsigned long le
   {
     err_print("Error reading random data\n");
   }
-  close(fd); fd = -1;
+  close(fd);
+  fd = -1;
 
-  printf("start = 0x%x\n", start);
-  printf("length = 0x%lx\n", length);
-  
+
   while (bytes_written < length)
   {
     bytes_to_write = (CHUNK_LENGTH < (length - bytes_written) ? CHUNK_LENGTH : (length - bytes_written));
-
-    printf("bytes_to_write = 0x%lx\n", bytes_to_write);
-    printf("start = 0x%lx\n", start + bytes_written);
-
-    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0,  &rand_buff[bytes_written], &bytes_to_write);
-    if ( status ) { err_print ("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status)); exit(-1); }
-    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0,  &zero_buff[bytes_written], &bytes_to_write);
-    if ( status ) { err_print ("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status)); exit(-1); }
-    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0,  &ones_buff[bytes_written], &bytes_to_write);
-    if ( status ) { err_print ("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status)); exit(-1); }
-    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0,  &zero_buff[bytes_written], &bytes_to_write);
-    if ( status ) { err_print ("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status)); exit(-1); }
+    printf(".");
+    fflush(stdout);
+    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0, &rand_buff[bytes_written], &bytes_to_write);
+    if (status)
+    {
+      err_print("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status));
+      exit(-1);
+    }
+    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0, &zero_buff[bytes_written], &bytes_to_write);
+    if (status)
+    {
+      err_print("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status));
+      exit(-1);
+    }
+    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0, &ones_buff[bytes_written], &bytes_to_write);
+    if (status)
+    {
+      err_print("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status));
+      exit(-1);
+    }
+    status = GenericVendorWrite(device_index, 0xa2, start + bytes_written, 0, &zero_buff[bytes_written], &bytes_to_write);
+    if (status)
+    {
+      err_print("GenericVendorWrite error %s\n", AIOUSB_GetResultCodeAsString(status));
+      exit(-1);
+    }
 
     bytes_written += bytes_to_write;
   }
+  printf("\n");
 }
 
-
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
   int current_option = 0;
   int option_index = 0;
@@ -96,17 +114,16 @@ int main (int argc, char **argv)
   unsigned long device_index = diOnly;
   int args_parsed = 0;
   int dry_run = 0;
-  
 
-  struct option long_options[] = 
-  {
-    {"erase-pnp", no_argument,  0, 'a'},
-    {"no-erase-bulk", no_argument, 0, 'b'},
-    {"erase-serial-num", no_argument, 0, 's'},
-    {"no-erase-user", no_argument, 0, 'u'},
-    {"dry-run", no_argument, 0, 'd'},
-    { 0, 0, 0, 0 }
-  };
+  struct option long_options[] =
+      {
+          {"erase-pnp", no_argument, 0, 'a'},
+          {"no-erase-bulk", no_argument, 0, 'b'},
+          {"erase-serial-num", no_argument, 0, 's'},
+          {"no-erase-user", no_argument, 0, 'u'},
+          {"dry-run", no_argument, 0, 'd'},
+          {0, 0, 0, 0}
+      };
 
   do
   {
@@ -114,49 +131,45 @@ int main (int argc, char **argv)
 
     if (current_option != -1)
     {
-      switch(current_option)
+      switch (current_option)
       {
-        case 'a':
+      case 'a':
 #if ALLOW_DESTRUCTIVE_WRITES
-          erase_pnp = 1;
-#endif 
-          break;
-
-        case 'b':
-          no_erase_bulk = 1;
-          break;
-        case 's':
-#if ALLOW_DESTRUCTIVE_WRITES
-          erase_serial_num = 1;
+        erase_pnp = 1;
 #endif
-          break;
-        case 'u':
-          no_erase_user = 1;
-          break;
-        case 'd':
-          dry_run = 1;
-          break;
-        case '?':
-          print_usage();
-          return -1;
+        break;
+
+      case 'b':
+        no_erase_bulk = 1;
+        break;
+      case 's':
+#if ALLOW_DESTRUCTIVE_WRITES
+        erase_serial_num = 1;
+#endif
+        break;
+
+      case 'u':
+        no_erase_user = 1;
+        break;
+
+      case 'd':
+        dry_run = 1;
+        break;
+
+      case '?':
+        print_usage();
+        return -1;
       };
       args_parsed++;
     }
   } while (current_option != -1);
 
-   if (args_parsed == argc - 2) //getopt_long was not behaving according to what
-                                //the man page said it would. option_index was
-                                //not being set as described so I did this.
-   {
-     device_index = strtoul(argv[argc - 1], NULL, 0);
-   }
-  // printf("args_parsed = %d\n", args_parsed);
-  // printf("argc = %d\n", argc);
-  // printf("erase_pnp = %d\n", erase_pnp);
-  // printf("no-erase-bulk = %d\n", no_erase_bulk);
-  // printf("erase_serial_num = %d\n", erase_serial_num);
-  // printf("no_erase_user = %d\n", no_erase_user);
-  // printf("option_index = 0x%x\n", option_index);
+  if (args_parsed == argc - 2) //getopt_long was not behaving according to what
+                               //the man page said it would. option_index was
+                               //not being set as described so I did this.
+  {
+    device_index = strtoul(argv[argc - 1], NULL, 0);
+  }
   printf("device_index = 0x%lx\n", device_index);
 
   { //init AIOUSB and verify we can talk to a device at given index
@@ -166,13 +179,13 @@ int main (int argc, char **argv)
 
     aiousb_status = AIOUSB_Init();
 
-    if ( aiousb_status )
+    if (aiousb_status)
     {
       err_print("Error opening AIOUSB library. %ld\n", aiousb_status);
       return -1;
     }
 
-    aiousb_status = QueryDeviceInfo ( device_index, NULL, &name_size, name, NULL, NULL);
+    aiousb_status = QueryDeviceInfo(device_index, NULL, &name_size, name, NULL, NULL);
 
     if (aiousb_status)
     {
@@ -184,7 +197,7 @@ int main (int argc, char **argv)
   }
   if (!dry_run)
   {
-    
+
     unsigned long length;
     unsigned long status;
     int start_address;
@@ -192,25 +205,24 @@ int main (int argc, char **argv)
     printf("Starting write operations\n");
 
 #if ALLOW_DESTRUCTIVE_WRITES
-    if(erase_pnp)
+    if (erase_pnp)
     {
       length = 0x8;
       do_write(device_index, 0, length);
       printf("PNP area erased\n");
-      
     }
 #endif
 
-    if(!no_erase_bulk)
+    if (!no_erase_bulk)
     {
       length = 0x1df0 - 0x8;
       do_write(device_index, 0x8, length);
-      
+
       printf("Bulk area erased\n");
     }
 
 #if ALLOW_DESTRUCTIVE_WRITES
-    if(erase_serial_num)
+    if (erase_serial_num)
     {
       length = 0x1e00 - 0x1df0;
       do_write(device_index, 0x1df0, length);
@@ -218,7 +230,7 @@ int main (int argc, char **argv)
     }
 #endif
 
-    if(!no_erase_user)
+    if (!no_erase_user)
     {
       length = 0x2000 - 0x1e00;
       do_write(device_index, 0x1e00, length);
@@ -226,6 +238,5 @@ int main (int argc, char **argv)
     }
 
     printf("Requested operations completed\n");
-
   }
 }
