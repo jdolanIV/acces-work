@@ -198,7 +198,7 @@ struct aio_irq_descriptor PCI_9_STYLE = /* S4C&04|C<00||C<10	 */
 .Generate = NULL,
 };
 
-#warning find out about NOT_YET_IMPLEMENTED
+//TODO: find out about NOT_YET_IMPLEMENTED
  struct aio_irq_descriptor PCI_11_STYLE = { 0 };
 // struct aio_irq_descriptor PCI_11_STYLE = /* S4C&04|E<00|8#6|E<FF	 */
 // {

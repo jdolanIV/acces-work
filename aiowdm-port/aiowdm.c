@@ -51,14 +51,44 @@ static struct pci_driver aio_pci_driver = {
 static struct pci_device_id *aio_driver_pci_device_table;
 #define AIO_DRIVER_PCI_TABLE_SIZE sizeof(struct pci_device_id) * (NUM_ACCES_PCI_DEVICES + 1)
 
+
+
+ssize_t aio_driver_read(struct file *filp, char __user *buf, size_t count,
+    loff_t *f_pos);
+ssize_t aio_driver_write(struct file *filp, const char __user *buf, size_t count, 
+    loff_t *fpos);
+int aio_driver_open(struct inode *inode, struct file *filp);
+int aio_driver_release(struct inode *inode, struct file *filp);
+loff_t aio_driver_llseek(struct file *filp, loff_t off, int whence);
+
+static struct file_operations aio_driver_fops =
+{
+  .owner = THIS_MODULE,
+  .read = aio_driver_read,
+  .write = aio_driver_write,
+  .open = aio_driver_open,
+  .release = aio_driver_release,
+  .llseek = aio_driver_llseek,
+};
+
+#define AIO_CDEV_CLASS "aio-device"
+
+static struct class *aio_driver_cdev_class;
+
+#define AIO_DEV_PATH "aiowdm/"
+
 //structure to hold per device information
 struct aio_device_context
 {
   //TODO: verify we need to hold onto the pci_dev
+  //pci stuff
   struct pci_dev pci_dev;
-  struct cdev cdev;
   const struct aio_pci_dev_cfg *dev_cfg;
   void *bar_bases[6]; //use ioport_map() and ioremap() to get these
+  //cdev stuff
+  struct cdev cdev;
+  dev_t dev_major;
+  struct device *device;
 };
 
 static int aio_driver_init(void)
@@ -81,16 +111,28 @@ static int aio_driver_init(void)
 
 	aio_pci_driver.id_table = aio_driver_pci_device_table;
 
+  aio_driver_cdev_class = class_create(THIS_MODULE, AIO_CDEV_CLASS);
+
+  if (IS_ERR(aio_driver_cdev_class))
+  {
+    aio_driver_err_print("Error creating cdev class");
+    goto err_cdev_create;
+  }
+
 	status = pci_register_driver(&aio_pci_driver);
 	if (status)
 	{
 		aio_driver_err_print("registration failure: %d", status);
 		goto err_register;
 	}
-	return 0;
 
+
+
+	return 0;
+err_cdev_create:
+//TODO: clean up pci driver registration
 err_register:
-	#warning magic number
+//TODO: magic number
 	return -1;
 }
 
@@ -98,6 +140,7 @@ static void aio_driver_exit(void)
 {
 	aio_driver_debug_print("Enter");
 	pci_unregister_driver(&aio_pci_driver);
+  class_destroy(aio_driver_cdev_class);
 }
 
 module_init(aio_driver_init);
@@ -121,6 +164,8 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
   }
 
   context = kmalloc(sizeof(struct aio_device_context), GFP_KERNEL);
+
+  aio_driver_dev_print("context = %p", context);
 
   for (i = 0; i < 6 ; i++) //TODO:look into magic number for BARs
   {
@@ -148,9 +193,45 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
     i++;
   }while(NULL == context->dev_cfg && i < NUM_ACCES_PCI_DEVICES);
 
-  alloc_chrdev_region(
+  //TODO: need to keep track of the names of created devices in case there is 
+  //more than one card with the same name. 
+  //TODO: Figure out if name should be defined somewhere. 
+  status = alloc_chrdev_region(&context->dev_major, 0, 0, "aio");
+
+  if (status)
+  {
+    aio_driver_err_print("Error allocating chrdev region: %d", status);
+    goto err_free_context;
+  }
+
+  cdev_init(&context->cdev, &aio_driver_fops);
+
+  status = cdev_add(&context->cdev, context->dev_major, 1) ;
+
+  if (status)
+  {
+    aio_driver_err_print("Error calling cdev_add(): %d", status);
+    goto err_free_context;
+  }
+
+  context->device = device_create(aio_driver_cdev_class, NULL, context->dev_major, context,  AIO_DEV_PATH "%s", context->dev_cfg->Model);
+  aio_driver_dev_print("device name: " AIO_DEV_PATH "%s", context->dev_cfg->Model); 
+  if (IS_ERR(context->device))
+  {
+    aio_driver_err_print("Error calling device_create()");
+    status = -EPERM;
+    goto err_free_cdev;
+  }
+  pci_set_drvdata(dev, context);
 
 
+return 0;
+//TODO: setup the cleanup properly. 
+err_free_cdev:
+  pci_release_selected_regions(dev, 0x3f);
+  cdev_del(&context->cdev);
+err_free_context: 
+  kfree(context);
 
 err_out:
 	return status;
@@ -158,7 +239,12 @@ err_out:
 
 void aio_driver_pci_remove (struct pci_dev *dev)
 {
+  struct aio_device_context * context = pci_get_drvdata(dev);
+  aio_driver_err_print("context = %p", context);
 
+   device_destroy(aio_driver_cdev_class, MKDEV(context->dev_major, 0));
+   cdev_del(&context->cdev);
+   kfree(context);
   pci_release_selected_regions(dev, 0x3f);
 	return;
 }
@@ -196,3 +282,44 @@ int  aio_driver_pci_sriov_configure (struct pci_dev *dev, int num_vfs)
   aio_driver_err_print("Entering stub");
   return 0;
 }
+
+
+ssize_t aio_driver_read(struct file *filp, char __user *buf, size_t count,
+    loff_t *f_pos)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("stubbed function");
+  return 0;
+}
+
+ssize_t aio_driver_write(struct file *filp, const char __user *buf, size_t count, 
+    loff_t *fpos)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("stubbed function");
+  return 0;
+}
+
+int aio_driver_open(struct inode *inode, struct file *filp)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("stubbed function. private_data = %p", filp->private_data);
+  return 0;
+}
+
+int aio_driver_release(struct inode *inode, struct file *filp)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("stubbed function");
+  return 0;
+}
+
+loff_t aio_driver_llseek(struct file *filp, loff_t off, int whence)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("stubbed function");
+  return 0;
+}
+
+
+
