@@ -204,6 +204,8 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
     goto err_free_context;
   }
 
+  aio_driver_dev_print("context->dev_major: 0x%x", context->dev_major);
+
   cdev_init(&context->cdev, &aio_driver_fops);
 
   status = cdev_add(&context->cdev, context->dev_major, 1) ;
@@ -214,7 +216,9 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
     goto err_free_context;
   }
 
-  context->device = device_create(aio_driver_cdev_class, NULL, context->dev_major, context,  AIO_DEV_PATH "%s", context->dev_cfg->Model);
+  context->device = device_create(aio_driver_cdev_class, NULL, context->dev_major, NULL,  AIO_DEV_PATH "%s", context->dev_cfg->Model);
+  dev_set_drvdata(context->device, context);
+  aio_driver_dev_print("context->device = %p", context->device);
   aio_driver_dev_print("device name: " AIO_DEV_PATH "%s", context->dev_cfg->Model); 
   if (IS_ERR(context->device))
   {
@@ -242,7 +246,7 @@ void aio_driver_pci_remove (struct pci_dev *dev)
   struct aio_device_context * context = pci_get_drvdata(dev);
   aio_driver_err_print("context = %p", context);
 
-   device_destroy(aio_driver_cdev_class, MKDEV(context->dev_major, 0));
+   device_destroy(aio_driver_cdev_class, context->dev_major);
    cdev_del(&context->cdev);
    kfree(context);
   pci_release_selected_regions(dev, 0x3f);
@@ -302,8 +306,16 @@ ssize_t aio_driver_write(struct file *filp, const char __user *buf, size_t count
 
 int aio_driver_open(struct inode *inode, struct file *filp)
 {
+  struct aio_device_context *context;
   aio_driver_debug_print("Enter");
   aio_driver_dev_print("stubbed function. private_data = %p", filp->private_data);
+  aio_driver_dev_print("stubbed function. inode->i_private = %p", inode->i_private);
+  aio_driver_dev_print("inode->i_rdev = 0x%x", inode->i_rdev);
+  aio_driver_dev_print("inode->i_cdev = %p", inode->i_cdev);
+  context = container_of(inode->i_cdev, struct aio_device_context, cdev);
+  aio_driver_dev_print("context = %p", context);
+  filp->private_data = context;
+  
   return 0;
 }
 
