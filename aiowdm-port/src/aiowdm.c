@@ -36,6 +36,7 @@ int  aio_driver_pci_resume (struct pci_dev *dev);
 void aio_driver_pci_shutdown (struct pci_dev *dev);
 int  aio_driver_pci_sriov_configure (struct pci_dev *dev, int num_vfs);
 
+
 static struct pci_driver aio_pci_driver = {
 .name = "aio_driver_pci",
 .probe = aio_driver_pci_probe,
@@ -60,6 +61,7 @@ ssize_t aio_driver_write(struct file *filp, const char __user *buf, size_t count
 int aio_driver_open(struct inode *inode, struct file *filp);
 int aio_driver_release(struct inode *inode, struct file *filp);
 loff_t aio_driver_llseek(struct file *filp, loff_t off, int whence);
+int aio_driver_mmap(struct file *filp, struct vm_area_struct *vma);
 
 static struct file_operations aio_driver_fops =
 {
@@ -69,6 +71,7 @@ static struct file_operations aio_driver_fops =
   .open = aio_driver_open,
   .release = aio_driver_release,
   .llseek = aio_driver_llseek,
+  .mmap = aio_driver_mmap,
 };
 
 #define AIO_CDEV_CLASS "aio-device"
@@ -82,7 +85,7 @@ struct aio_device_context
 {
   //TODO: verify we need to hold onto the pci_dev
   //pci stuff
-  struct pci_dev pci_dev;
+  struct pci_dev *pci_dev;
   const struct aio_pci_dev_cfg *dev_cfg;
   void *bar_bases[6]; //use ioport_map() and ioremap() to get these
   //cdev stuff
@@ -177,7 +180,7 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
       {
         aio_driver_err_print("Could not map bar %d", i);
       }
-      aio_driver_dev_print("attempted mapping of bar %d", i);
+      aio_driver_dev_print("context->bar_bases[%d] = %p", i, context->bar_bases[i]);
     }
   }
 
@@ -226,6 +229,8 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
     status = -EPERM;
     goto err_free_cdev;
   }
+  context->pci_dev = dev;
+  pci_enable_device(dev);
   pci_set_drvdata(dev, context);
 
 
@@ -250,6 +255,7 @@ void aio_driver_pci_remove (struct pci_dev *dev)
    cdev_del(&context->cdev);
    kfree(context);
   pci_release_selected_regions(dev, 0x3f);
+  pci_disable_device(dev);
 	return;
 }
 
@@ -333,5 +339,27 @@ loff_t aio_driver_llseek(struct file *filp, loff_t off, int whence)
   return 0;
 }
 
+int aio_driver_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+  struct aio_device_context *context = filp->private_data;
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("context = %p", context);
+  aio_driver_dev_print("pci_resource_start(context->pci_dev, 0) = 0x%llx", pci_resource_start(context->pci_dev, 0));
+  aio_driver_dev_print("pci_resource_start(context->pci_dev, 1) = 0x%llx", pci_resource_start(context->pci_dev, 1));
+  aio_driver_dev_print("pci_resource_start(context->pci_dev, 2) = 0x%llx", pci_resource_start(context->pci_dev, 2));
 
+  // if (remap_pfn_range(vma, vma->vm_start, pci_resource_start(context->pci_dev, 2),
+  //                      PAGE_SIZE, vma->vm_page_prot))
+  // {
+  //   aio_driver_err_print("io_remap_page_range failed\n");
+  //   return -EAGAIN;
+  // }
+  if (vm_iomap_memory(vma, pci_resource_start(context->pci_dev, 2), PAGE_SIZE))
+  {
+    aio_driver_err_print("io_remap_page_range failed\n");
+    return -EAGAIN;
+  }
+  aio_driver_debug_print("Exit");
+  return 0;
+}
 
