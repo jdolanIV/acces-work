@@ -12,8 +12,8 @@ def aio_watchdog_library_term():
 def aio_watchdog_reinit(card):
   return _handle.aio_watchdog_reinit(ctypes.c_int(card))
 
-def aio_watchdog_period_set(card, seconds):
-  return _handle.aio_watchdog_period_set(ctypes.c_int(card), ctypes.c_int(seconds))
+def aio_watchdog_period_set(card, milliseconds):
+  return _handle.aio_watchdog_period_set(ctypes.c_int(card), ctypes.c_int(milliseconds))
 
 def aio_watchdog_start(card):
   return _handle.aio_watchdog_start(ctypes.c_int(card))
@@ -38,7 +38,7 @@ def aio_watchdog_humidity_read(card):
   return (status, humidity.value)
 
 if __name__ == "__main__":
-  WATCHDOG_PERIOD=5
+  WATCHDOG_PERIOD=5000
   WATCHDOG_PET_INTERVAL=3
   WATCHDOG_NUM_PETS=3
   WATCHDOG_PULSE_WIDTH=254
