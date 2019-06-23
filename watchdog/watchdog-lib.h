@@ -17,7 +17,7 @@ void aio_watchdog_library_term();
  * an error message to stdout and return -1
  * ****************************/
 int aio_watchdog_reinit(int card_index);
-int aio_watchdog_period_set (int card_index, int s);
+int aio_watchdog_period_set (int card_index, int ms);
 int aio_watchdog_start (int card_index);
 int aio_watchdog_pet (int card_index);
 int aio_watchdog_stop (int card_index);

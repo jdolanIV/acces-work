@@ -138,12 +138,12 @@ int aio_watchdog_reinit(int card_index)
 	return status;
 }
 
-int aio_watchdog_period_set (int card_index, int s)
+int aio_watchdog_period_set (int card_index, int ms)
 {
 	int status = 0;
 	if (num_cards > card_index)
 	{
-		status = libusb_control_transfer(watchdog_card_list[card_index], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, s, 0x0054, NULL, 0, 0);
+		status = libusb_control_transfer(watchdog_card_list[card_index], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, ms, 0x0055, NULL, 0, 0);
 		aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 	}
 	else

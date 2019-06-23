@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include "watchdog-lib.h"
 
-#define WATCHDOG_PERIOD 5
+#define WATCHDOG_PERIOD 5000
 #define WATCHDOG_PET_INTERVAL 3
 #define WATCHDOG_NUM_PETS 3
 #define WATCHDOG_PULSE_WIDTH 254
