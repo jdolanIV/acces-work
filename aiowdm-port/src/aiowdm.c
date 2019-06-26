@@ -5,6 +5,7 @@
 #include <linux/cdev.h>
 
 #include "devices.h"
+#include "aiowdm_ioctl.h"
 
 MODULE_DESCRIPTION("Linux counterpart to AIOWDM");
 MODULE_AUTHOR("ACCES");
@@ -62,6 +63,7 @@ int aio_driver_open(struct inode *inode, struct file *filp);
 int aio_driver_release(struct inode *inode, struct file *filp);
 loff_t aio_driver_llseek(struct file *filp, loff_t off, int whence);
 int aio_driver_mmap(struct file *filp, struct vm_area_struct *vma);
+long aio_driver_ioctl (struct file *filp, unsigned int ioctl, unsigned long arg);
 
 static struct file_operations aio_driver_fops =
 {
@@ -72,7 +74,10 @@ static struct file_operations aio_driver_fops =
   .release = aio_driver_release,
   .llseek = aio_driver_llseek,
   .mmap = aio_driver_mmap,
+  .unlocked_ioctl = aio_driver_ioctl,
 };
+
+long ioctl_AIOWDM_CARD_INFO_GET (struct file *filp, unsigned long arg);
 
 #define AIO_CDEV_CLASS "aio-device"
 
@@ -92,6 +97,7 @@ struct aio_device_context
   struct cdev cdev;
   dev_t dev_major;
   struct device *device;
+  int default_bar;
 };
 
 static int aio_driver_init(void)
@@ -167,6 +173,7 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
   }
 
   context = kmalloc(sizeof(struct aio_device_context), GFP_KERNEL);
+  memset(context, 0, sizeof(struct aio_device_context));
 
   aio_driver_dev_print("context = %p", context);
 
@@ -179,6 +186,12 @@ int aio_driver_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
       if (NULL == context->bar_bases[i])
       {
         aio_driver_err_print("Could not map bar %d", i);
+      }
+      if (flags & (IORESOURCE_IO)) 
+      {
+        //This should match what the Windows driver comes up with for port base
+        //in StartDevice() 
+        context->default_bar = i;
       }
       aio_driver_dev_print("context->bar_bases[%d] = %p", i, context->bar_bases[i]);
     }
@@ -363,3 +376,35 @@ int aio_driver_mmap(struct file *filp, struct vm_area_struct *vma)
   return 0;
 }
 
+long aio_driver_ioctl (struct file *filp, unsigned int ioctl, unsigned long arg)
+{
+  long status = 0;
+  aio_driver_debug_print("Enter");
+
+
+  switch (ioctl)
+  {
+    case AIOWDM_CARD_INFO_GET:
+      status = ioctl_AIOWDM_CARD_INFO_GET(filp, arg);
+      break;
+    default:
+      aio_driver_err_print("Invalid IOCTL call for device");
+      status = -EINVAL;
+  }
+  return -EINVAL;
+}
+
+long ioctl_AIOWDM_CARD_INFO_GET (struct file *filp, unsigned long arg)
+{
+  struct aiowdm_card_info *card_info = (struct aiowdm_card_info *)arg;
+  struct aio_device_context *context = filp->private_data;
+  aio_driver_debug_print("Enter");
+
+  card_info->device_id = context->pci_dev->device;
+  card_info->port_base = pci_resource_start(context->pci_dev, context->default_bar);
+  if ( card_info->name_size != 0)
+  {
+    strncpy(card_info->name, context->dev_cfg->Model, card_info->name_size);
+  }
+  return 0;
+}
