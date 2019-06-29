@@ -1,4 +1,7 @@
 #include <linux/ioctl.h>
+#ifndef __KERNEL__
+#include <stdint.h>
+#endif
 
 #define AIOWDM_MAGIC 0x0E
 
