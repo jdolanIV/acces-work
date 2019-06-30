@@ -3,12 +3,24 @@
 #include <unistd.h>
 #include "watchdog-lib.h"
 
-#define WATCHDOG_PERIOD 5000
+#define WATCHDOG_PERIOD 5
 #define WATCHDOG_PET_INTERVAL 3
 #define WATCHDOG_NUM_PETS 3
 #define WATCHDOG_PULSE_WIDTH 254
 
+void do_sample ( );
+
+
 int main (int argc, char **argv)
+{	int count = 0;
+	do
+	{
+		printf("\n\nIteration: %d\n\n", count++);
+		do_sample();
+	}while (1);
+}
+
+void do_sample ( )
 {
 	double degrees = 0.0, humidity = 0.0;
 	int status = 0, i = 0;
