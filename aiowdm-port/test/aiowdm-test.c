@@ -24,14 +24,19 @@ int main (int argc, char **argv)
     return 1;
   }
 
-  card_info.name = name;
-  card_info.name_size = sizeof(name);
+  //card_info.name = name;
+  //card_info.name_size = sizeof(name);
   status = ioctl(fd, AIOWDM_CARD_INFO_GET, &card_info);
 
   if (status)
   {
     perror("ioctl error:");
   }
+
+  printf("card_info->device_id = 0x%x\n", card_info.device_id);
+  printf("card_info->port_base = 0x%x\n", card_info.port_base);
+  printf("card_info->name = %s\n", card_info.name);
+
 
   close(fd);
 

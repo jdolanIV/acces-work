@@ -14,7 +14,7 @@ struct aiowdm_card_info
   uint16_t device_id;
   unsigned short int port_base;
   unsigned long name_size;
-  char *name;
+  char name[64];
 };
 
 

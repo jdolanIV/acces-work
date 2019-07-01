@@ -391,20 +391,27 @@ long aio_driver_ioctl (struct file *filp, unsigned int ioctl, unsigned long arg)
       aio_driver_err_print("Invalid IOCTL call for device");
       status = -EINVAL;
   }
-  return -EINVAL;
+  return status;
 }
 
 long ioctl_AIOWDM_CARD_INFO_GET (struct file *filp, unsigned long arg)
 {
   struct aiowdm_card_info *card_info = (struct aiowdm_card_info *)arg;
   struct aio_device_context *context = filp->private_data;
+  unsigned short int port_base;
   aio_driver_debug_print("Enter");
 
-  card_info->device_id = context->pci_dev->device;
-  card_info->port_base = pci_resource_start(context->pci_dev, context->default_bar);
-  if ( card_info->name_size != 0)
+  port_base = pci_resource_start(context->pci_dev, context->default_bar);
+
+  copy_to_user(&card_info->device_id, &context->pci_dev->device, sizeof(uint16_t));
+  copy_to_user(&card_info->port_base, &port_base, sizeof(unsigned short));
+  //if ( card_info->name_size != 0)
   {
-    strncpy(card_info->name, context->dev_cfg->Model, card_info->name_size);
+    aio_driver_dev_print("attempt to copy name. context->dev_cfg->Model = %s, strlen = %lu", context->dev_cfg->Model, strlen(context->dev_cfg->Model));
+    aio_driver_dev_print("attempt to copy name. context->dev_cfg->Model = %p", context->dev_cfg->Model);
+
+    copy_to_user(card_info->name, context->dev_cfg->Model, strlen(context->dev_cfg->Model));
+    //strncpy(card_info->name, context->dev_cfg->Model, 11);
   }
   return 0;
 }
