@@ -3,7 +3,12 @@
 int aiowdm_card_open(const char *device_path);
 int aiowdm_card_info_get(int dev_fd, uint16_t *device_id, unsigned short int *port_base, unsigned long *name_size, char *name);
 int aiowdm_bar_resource_get(int dev_fd, unsigned int bar, struct resource *resource);
-int aiowdm_wait_for_irq(int dev_fd);
+
+int aiowdm_irq_enable(int, dev_fd);
+int aiowdm_irq_disable(
+int aiowdm_irq_wait(int dev_fd);
+int aiowdm_irq_wait_cancel(int def_fd);
+
 int aiowdm_card_close(int dev_fd);
 
 //Following all use the card's default I/O address as a base
