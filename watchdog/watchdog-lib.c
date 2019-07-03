@@ -63,9 +63,23 @@ int aio_watchdog_library_init()
 		ssize_t                         device_count    = 0;
 		ssize_t                         i               = 0;
 		ssize_t                         opened          = 0;
+		struct libusb_version const *libusb_version;
+		
+
+	/** For ABI compatibility only. */
+	const char* describe;
 
 
 		libusb_init(&usb_context);
+
+		libusb_version = libusb_get_version();
+
+		printf("libusb-version: %d.%d.%d.%d-%s\n",
+		libusb_version->major,
+		libusb_version->minor,
+		libusb_version->micro,
+		libusb_version->nano,
+		libusb_version->rc);
 
 		device_count = libusb_get_device_list(usb_context, &device_list);
 		num_cards = 0;
@@ -91,7 +105,7 @@ int aio_watchdog_library_init()
 				status = libusb_claim_interface(watchdog_card_list[opened], 0);
 				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 				//enable ADC
-				status = libusb_control_transfer(watchdog_card_list[opened], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, 0x1, 0x1, NULL, 0, 0);
+				//status = libusb_control_transfer(watchdog_card_list[opened], LIBUSB_REQUEST_TYPE_VENDOR, 0x40, 0x1, 0x1, NULL, 0, 0);
 				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
 				if (0 == status) opened++;
 				
