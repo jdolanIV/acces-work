@@ -242,6 +242,24 @@ int aio_watchdog_humidity_read (int card_index, double *humidity)
 	return status;
 }
 
+int aio_watchdog_a2d_read (int card_index, 
+                            double *a2d0, 
+                            double *a2d1, 
+                            double *a2d2, 
+                            double *a2d3)
+{
+	int status = 0;
+	struct watchdog_status stat = { 0 };
+	aio_watchdog_read_status(card_index, &stat);
+	if (0 == status)
+	{
+		*a2d0 = stat.r.AD0_Counts;
+		*a2d1 = stat.r.AD1_Counts;
+		*a2d2 = stat.r.AD2_Counts;
+		*a2d3 = stat.r.AD3_Counts;
+	}
+	return status;
+}
 int aio_watchdog_read_status(int card_index, struct watchdog_status *stat)
 {
 	int status = 0;
@@ -269,3 +287,4 @@ int aio_watchdog_read_status(int card_index, struct watchdog_status *stat)
 	}
 	return status;
 }
+
