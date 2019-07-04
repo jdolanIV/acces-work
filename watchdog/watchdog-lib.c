@@ -253,10 +253,11 @@ int aio_watchdog_a2d_read (int card_index,
 	aio_watchdog_read_status(card_index, &stat);
 	if (0 == status)
 	{
-		*a2d0 = stat.r.AD0_Counts;
-		*a2d1 = stat.r.AD1_Counts;
-		*a2d2 = stat.r.AD2_Counts;
-		*a2d3 = stat.r.AD3_Counts;
+		//Result :=  1.25 * x / 32.767;
+		*a2d0 = 1.25 * stat.r.AD0_Counts / 32.767;
+		*a2d1 = 1.25 * stat.r.AD1_Counts / 32.767;
+		*a2d2 = 1.25 * stat.r.AD2_Counts / 32.767;
+		*a2d3 = 1.25 * stat.r.AD3_Counts / 32.767;
 	}
 	return status;
 }
