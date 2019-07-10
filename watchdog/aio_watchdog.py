@@ -75,7 +75,7 @@ if __name__ == "__main__":
       (status, humidity) = aio_watchdog_humidity_read(0)
       print("humidiy = %f\n" % humidity)
       (status, twelve_v, three_three_v, ext_temp, light_sensor) = aio_watchdog_a2d_read(0)
-      print ("twelve_v = {}, three_three_v = {}, ext_temp = {}, light_sensor = {}".format(twelve_v, three_three_v, ext_temp,light_sensor))
+      print ("twelve_v = {}v, three_three_v = {}v, ext_temp = {}C, light_sensor = {}mv".format(twelve_v, three_three_v, ext_temp,light_sensor))
       time.sleep(WATCHDOG_PET_INTERVAL)
       print("Petting watchdog\n")
       aio_watchdog_pet(0)
