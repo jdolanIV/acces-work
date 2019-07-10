@@ -243,10 +243,10 @@ int aio_watchdog_humidity_read (int card_index, double *humidity)
 }
 
 int aio_watchdog_a2d_read (int card_index, 
-                            double *a2d0, 
-                            double *a2d1, 
-                            double *a2d2, 
-                            double *a2d3)
+                           double *twelve_v, 
+                           double *three_three_v, 
+                           double *ext_temp, 
+                           double *light_sensor)
 {
 	int status = 0;
 	struct watchdog_status stat = { 0 };
@@ -254,10 +254,10 @@ int aio_watchdog_a2d_read (int card_index,
 	if (0 == status)
 	{
 		//Result :=  1.25 * x / 32.767;
-		*a2d0 = 1.25 * stat.r.AD0_Counts / 32.767;
-		*a2d1 = 1.25 * stat.r.AD1_Counts / 32.767;
-		*a2d2 = 1.25 * stat.r.AD2_Counts / 32.767;
-		*a2d3 = 1.25 * stat.r.AD3_Counts / 32.767;
+		*twelve_v = 1.25 * stat.r.AD0_Counts / 2326.457;
+		*three_three_v = 1.25 * stat.r.AD1_Counts / 7864.08;
+		*ext_temp = 1.25 * stat.r.AD2_Counts / 108.78644 - 208.15;
+		*light_sensor = 1.25 * stat.r.AD3_Counts / 7.86408;
 	}
 	return status;
 }

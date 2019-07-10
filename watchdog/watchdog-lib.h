@@ -25,7 +25,7 @@ int aio_watchdog_pulse_width_set (int card_index, uint8_t pulse_width);
 int aio_watchdog_temp_read (int card_index, double *degrees_c);
 int aio_watchdog_humidity_read (int card_index, double *humidity);
 int aio_watchdog_a2d_read (int card_index, 
-                            double *a2d0, 
-                            double *a2d1, 
-                            double *a2d2, 
-                            double *a2d3);
+                            double *twelve_v, 
+                            double *three_three_v, 
+                            double *ext_temp, 
+                            double *light_sensor);

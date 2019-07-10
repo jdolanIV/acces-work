@@ -38,16 +38,16 @@ def aio_watchdog_humidity_read(card):
   return (status, humidity.value)
 
 def aio_watchdog_a2d_read(card):
-  a2d0 = ctypes.c_double()
-  a2d1 = ctypes.c_double()
-  a2d2 = ctypes.c_double()
-  a2d3 = ctypes.c_double()
+  twelve_v = ctypes.c_double()
+  three_three_v = ctypes.c_double()
+  ext_temp = ctypes.c_double()
+  light_sensor = ctypes.c_double()
   status = _handle.aio_watchdog_a2d_read(ctypes.c_int(card), 
-                                          ctypes.byref(a2d0),
-                                          ctypes.byref(a2d1),
-                                          ctypes.byref(a2d2),
-                                          ctypes.byref(a2d3))
-  return (status, a2d0.value, a2d1.value, a2d2.value, a2d3.value)
+                                          ctypes.byref(twelve_v),
+                                          ctypes.byref(three_three_v),
+                                          ctypes.byref(ext_temp),
+                                          ctypes.byref(light_sensor))
+  return (status, twelve_v.value, three_three_v.value, ext_temp.value, light_sensor.value)
 
 if __name__ == "__main__":
   WATCHDOG_PERIOD=5000
@@ -74,8 +74,8 @@ if __name__ == "__main__":
       print("degrees = %f\n" % degrees)
       (status, humidity) = aio_watchdog_humidity_read(0)
       print("humidiy = %f\n" % humidity)
-      (status, a2d0, a2d1, a2d2, a2d3) = aio_watchdog_a2d_read(0)
-      print ("a2d0 = {}, a2d1 = {}, a2d2 = {}, a2d3 = {}".format(a2d0, a2d1, a2d2,a2d3))
+      (status, twelve_v, three_three_v, ext_temp, light_sensor) = aio_watchdog_a2d_read(0)
+      print ("twelve_v = {}, three_three_v = {}, ext_temp = {}, light_sensor = {}".format(twelve_v, three_three_v, ext_temp,light_sensor))
       time.sleep(WATCHDOG_PET_INTERVAL)
       print("Petting watchdog\n")
       aio_watchdog_pet(0)

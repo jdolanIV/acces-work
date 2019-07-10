@@ -36,6 +36,7 @@ int main (int argc, char **argv)
 		sleep(WATCHDOG_PET_INTERVAL);
 		printf("Petting watchdog\n");
 		aio_watchdog_pet(0);
+
 	}
 	aio_watchdog_library_term();
 }
