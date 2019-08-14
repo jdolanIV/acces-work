@@ -13,7 +13,10 @@ struct aiowdm_card_info
 {
   uint16_t device_id;
   unsigned short int port_base;
+<<<<<<< HEAD
   size_t port_size; //TODO: Better name?
+=======
+>>>>>>> aiowdm-port
   unsigned long name_size;
   char name[64];
 };
@@ -21,9 +24,13 @@ struct aiowdm_card_info
 struct aiowdm_bar_resource_info
 {
   int bar;
+<<<<<<< HEAD
   size_t start;
   size_t end;
   unsigned long flags;
+=======
+  struct resource resource;
+>>>>>>> aiowdm-port
 };
 
 

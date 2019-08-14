@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <string.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -111,3 +112,6 @@ int aiowdm_card_close  (int handle)
     contexts = realloc(contexts, 0);
   }
 }
+=======
+#include "libaiowdm.h"
+>>>>>>> aiowdm-port
