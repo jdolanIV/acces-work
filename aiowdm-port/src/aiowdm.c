@@ -363,3 +363,159 @@ int aio_driver_mmap(struct file *filp, struct vm_area_struct *vma)
   return 0;
 }
 
+<<<<<<< Updated upstream
+=======
+long aio_driver_ioctl (struct file *filp, unsigned int ioctl, unsigned long arg)
+{
+  long status = 0;
+  aio_driver_debug_print("Enter");
+
+
+  switch (ioctl)
+  {
+    case AIOWDM_CARD_INFO_GET:
+      status = ioctl_AIOWDM_CARD_INFO_GET(filp, arg);
+      break;
+    case AIOWDM_BAR_RESOURCE_GET:
+      status = ioctl_AIOWDM_BAR_RESOURCE_GET (filp, arg);
+      break;
+    case AIOWDM_IRQ_ENABLE:
+      status = ioctl_AIOWDM_IRQ_ENABLE (filp, arg);
+      break;
+    case AIOWDM_IRQ_DISABLE:
+      status = ioctl_AIOWDM_IRQ_DISABLE (filp, arg);
+      break;
+    case AIOWDM_IRQ_WAIT:
+      status = ioctl_AIOWDM_IRQ_WAIT (filp, arg);
+      break;
+    case AIOWDM_IRQ_WAIT_CANCLE:
+      status = ioctl_AIOWDM_IRQ_WAIT_CANCLE (filp, arg);
+      break;
+    default:
+      aio_driver_err_print("Invalid IOCTL call for device");
+      status = -EINVAL;
+  }
+  return status;
+}
+
+long ioctl_AIOWDM_CARD_INFO_GET (struct file *filp, unsigned long arg)
+{
+  struct aiowdm_card_info *card_info = (struct aiowdm_card_info *)arg;
+  struct aio_device_context *context = filp->private_data;
+  unsigned short int port_base;
+  aio_driver_debug_print("Enter");
+
+  port_base = pci_resource_start(context->pci_dev, context->default_bar);
+
+  copy_to_user(&card_info->device_id, &context->pci_dev->device, sizeof(uint16_t));
+  copy_to_user(&card_info->port_base, &port_base, sizeof(unsigned short));
+  //if ( card_info->name_size != 0)
+  {
+    aio_driver_dev_print("attempt to copy name. context->dev_cfg->Model = %s, strlen = %lu", context->dev_cfg->Model, strlen(context->dev_cfg->Model));
+    aio_driver_dev_print("attempt to copy name. context->dev_cfg->Model = %p", context->dev_cfg->Model);
+
+    copy_to_user(card_info->name, context->dev_cfg->Model, strlen(context->dev_cfg->Model));
+    //strncpy(card_info->name, context->dev_cfg->Model, 11);
+  }
+  return 0;
+}
+
+long ioctl_AIOWDM_BAR_RESOURCE_GET (struct file *filp, unsigned long arg)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  return -EPERM;
+}
+
+long ioctl_AIOWDM_IRQ_ENABLE (struct file *filp, unsigned long arg)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  return -EPERM;
+}
+
+long ioctl_AIOWDM_IRQ_DISABLE (struct file *filp, unsigned long arg)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  return -EPERM;
+}
+
+long ioctl_AIOWDM_IRQ_WAIT (struct file *filp, unsigned long arg)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  return -EPERM;
+}
+
+long ioctl_AIOWDM_IRQ_WAIT_CANCLE (struct file *filp, unsigned long arg)
+{
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  return -EPERM;
+}
+
+int aio_driver_register_action(void *bar_bases[6], struct register_operation op)
+{
+  int status = 0;
+  aio_driver_debug_print("Enter");
+  aio_driver_dev_print("Stubbed function");
+  switch (op.action)
+  {
+    case REGISTER_ACTION_NONE:
+      break;
+    case REGISTER_ACTION_READ_8:
+      op.value = ioread8(bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_READ_16:
+      op.value = ioread16(bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_READ_32:
+      op.value = ioread32(bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_WRITE_8:
+      iowrite8(op.value, bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_WRITE_16:
+      iowrite16(op.value, bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_WRITE_32:
+      iowrite32(op.value, bar_bases[op.bar] + op.offset);
+      break;
+    case REGISTER_ACTION_WRITE_48:
+      aio_driver_err_print("unimplemented register action hit");
+      status = -EPERM;
+      break;
+    case REGISTER_ACTION_TESTBITS_8:
+      op.value = !((ioread8(bar_bases[op.bar] + op.offset) ^ op.value) & op.mask);
+      break;
+    case REGISTER_ACTION_TESTBITS_16:
+      op.value = !((ioread16(bar_bases[op.bar] + op.offset) ^ op.value) & op.mask);
+      break;
+    case REGISTER_ACTION_TESTBITS_32:
+      op.value = !((ioread32(bar_bases[op.bar] + op.offset) ^ op.value) & op.mask);
+      break;
+    case REGISTER_ACTION_WRITEBITS_8:
+      iowrite8((ioread8(bar_bases[op.bar] + op.offset) & op.mask) | op.value, bar_bases[op.bar]); 
+      break;
+    case REGISTER_ACTION_WRITEBITS_16:
+      iowrite16((ioread16(bar_bases[op.bar] + op.offset) & op.mask) | op.value, bar_bases[op.bar]); 
+      break;
+    case REGISTER_ACTION_WRITEBITS_32:
+      iowrite32((ioread32(bar_bases[op.bar] + op.offset) & op.mask) | op.value, bar_bases[op.bar]); 
+      break;
+    case REGISTER_ACTION_TOGGLEBITS_8:
+      iowrite8(ioread8(bar_bases[op.bar] + op.offset) ^ op.mask, bar_bases[op.bar]);
+      break;
+    case REGISTER_ACTION_TOGGLEBITS_16:
+      iowrite16(ioread16(bar_bases[op.bar] + op.offset) ^ op.mask, bar_bases[op.bar]);
+      break;
+    case REGISTER_ACTION_TOGGLEBITS_32:
+      iowrite16(ioread16(bar_bases[op.bar] + op.offset) ^ op.mask, bar_bases[op.bar]);
+      break;
+  };
+  return status;
+}
+
+
+>>>>>>> Stashed changes
