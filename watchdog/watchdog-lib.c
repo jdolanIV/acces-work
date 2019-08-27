@@ -83,7 +83,8 @@ int aio_watchdog_library_init()
 		for ( i = 0 ; i < device_count ; i++)
 		{
 			libusb_get_device_descriptor(device_list[i], &usb_descriptor);
-			if ((usb_descriptor.idVendor == 0x1605) && (usb_descriptor.idProduct == 0x8080))
+			if ((usb_descriptor.idVendor == 0x1605) && 
+				((usb_descriptor.idProduct == 0x8080) || (usb_descriptor.idProduct == 0x8081)))
 			{
 				status = libusb_open(device_list[i], &watchdog_card_list[opened]);
 				aio_watchdog_library_err_print(status, "%s\n", libusb_error_name(status));
