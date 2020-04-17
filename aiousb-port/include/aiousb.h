@@ -13,7 +13,7 @@ typedef struct aiousb_device* aiousb_device_handle;
 typedef void (*adc_cont_callback) (uint16_t *buff, uint32_t buff_size,
               uint32_t flags, uint32_t context);
 
-int aiousb_device_open (char *fname, aiousb_device_handle *device);
+int aiousb_device_open (const char *fname, aiousb_device_handle *device);
 void aiousb_device_close (aiousb_device_handle device);
 
 int aiousb_generic_vendor_read(aiousb_device_handle device, 

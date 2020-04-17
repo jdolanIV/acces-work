@@ -34,7 +34,7 @@ int main (int arg, char **argv)
 
   status = aiousb_adc_get_config(device, NULL, &config_size);
 
-  config_buff = malloc(config_size);
+  config_buff = (uint8_t *) malloc(config_size);
 
   status = aiousb_adc_get_config(device, config_buff, &config_size);
 

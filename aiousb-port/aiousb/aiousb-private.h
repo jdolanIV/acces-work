@@ -35,7 +35,7 @@ struct aiousb_device
 {
   int fd;
   struct acces_usb_device_descriptor descriptor;
-  unsigned char *last_dio_data;
+  uint8_t *last_dio_data;
   int b_firmware_20;
   struct pnp_data pnp_data;
   //dio streaming stuff

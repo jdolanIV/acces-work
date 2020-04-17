@@ -19,7 +19,7 @@ void *adc_worker_execute (void *context)
   uint32_t transfer_length = MAX(adc_worker_min_block, 
           MIN(adc_worker_context->bytes_left, adc_worker_context->block_size));
 
-  ad_buff = malloc(transfer_length);
+  ad_buff =(uint8_t *) malloc(transfer_length);
 
   if (ad_buff == NULL)
     {
@@ -123,7 +123,7 @@ adc_cont_buff_worker_extra_buf (struct adc_cont_buff_worker_context *context)
   struct adc_continuous_buffer *retval = NULL;
   pthread_mutex_lock(&context->buff_mutex);
 
-  retval = malloc(sizeof(struct adc_continuous_buffer));
+  retval =(struct adc_continuous_buffer*) malloc(sizeof(struct adc_continuous_buffer));
 
   if (retval == NULL)
     {
@@ -132,7 +132,7 @@ adc_cont_buff_worker_extra_buf (struct adc_cont_buff_worker_context *context)
     }
 
   context->num_buffs++;
-  context->buf_buf = realloc(context->buf_buf, 
+  context->buf_buf = (adc_continuous_buffer_handle *) realloc(context->buf_buf, 
               sizeof (struct adc_continuous_buffer *) * context->num_buffs);
 
   if (context->buf_buf == NULL)

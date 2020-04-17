@@ -117,13 +117,13 @@ static const uint8_t AUR_DEBUG_FLASH_ERASE   = 0xFC;
 static const uint8_t CUR_RAM_READ            = 0xA3;
 
 
-int aiousb_device_open (char *fname, aiousb_device_handle *device)
+int aiousb_device_open (const char *fname, aiousb_device_handle *device)
 {
   int i;
   int status;
   struct accesio_usb_aiousb_info accesio_usb_aiousb_info;
   struct aiousb_device *ptr;
-  ptr = malloc(sizeof(struct aiousb_device));
+  ptr = (struct aiousb_device *)malloc(sizeof(struct aiousb_device));
   memset(ptr, 0, sizeof(struct aiousb_device));
   uint8_t mem_flags[3];
 
@@ -153,7 +153,7 @@ int aiousb_device_open (char *fname, aiousb_device_handle *device)
             }
           if (ptr->descriptor.dio_bytes > 0)
             {
-              ptr->last_dio_data = malloc(ptr->descriptor.dio_bytes);
+              ptr->last_dio_data = (uint8_t *) malloc(ptr->descriptor.dio_bytes);
             }
           break;
         }
@@ -332,7 +332,7 @@ int aiousb_dio_configure (aiousb_device_handle device, uint8_t b_tristate,
   out_mask_size = (device->descriptor.dio_config_bits + 7) / 8;
   payload_size = device->descriptor.dio_bytes + 2 * out_mask_size;
 
-  payload = malloc(payload_size);
+  payload = (uint8_t *) malloc(payload_size);
 
   memcpy(device->last_dio_data, data, device->descriptor.dio_bytes);
 
@@ -384,7 +384,7 @@ int aiousb_dio_configure_ex (aiousb_device_handle device, void * out_mask,
   tristate_size = (device->descriptor.tristate + 7) / 8;
   payload_size = device->descriptor.dio_bytes + out_mask_size + tristate_size;
 
-  payload = malloc(payload_size);
+  payload = (uint8_t *)malloc(payload_size);
 
   memcpy(device->last_dio_data, data, device->descriptor.dio_bytes);
   memcpy(&(payload[device->descriptor.dio_bytes]), out_mask, out_mask_size);
@@ -431,7 +431,7 @@ int aiousb_dio_configure_masked(aiousb_device_handle device, void *outs,
                   outs_length * 2 +
                   tristate_length * 2;
 
-  payload = malloc(payload_size);
+  payload =(uint8_t *) malloc(payload_size);
   current = payload;
 
   if (outs_mask == NULL)
@@ -697,7 +697,7 @@ int aiousb_dio_read_8(aiousb_device_handle device, uint32_t byte_index,
       return -EINVAL;
     }
 
-  all_bytes = malloc(device->descriptor.dio_bytes);
+  all_bytes = (uint8_t *) malloc(device->descriptor.dio_bytes);
 
   status = aiousb_generic_vendor_read(device,
                                       AUR_DIO_READ,
@@ -737,7 +737,7 @@ int aiousb_dio_read_1(aiousb_device_handle device, uint32_t bit_index,
       return -EINVAL;
     }
 
-  all_bytes = malloc(device->descriptor.dio_bytes);
+  all_bytes = (uint8_t *) malloc(device->descriptor.dio_bytes);
 
   status = aiousb_generic_vendor_read(device,
                                       AUR_DIO_READ,
@@ -791,7 +791,7 @@ int aiousb_dio_configuration_query(aiousb_device_handle device, void *out_mask,
   length = out_length + tristate_length;
            
 
-  data = malloc (length);
+  data =(uint8_t *) malloc (length);
 
   status = aiousb_generic_vendor_read(device,
                                       AUR_DIO_CONFIG_QUERY,
@@ -948,7 +948,7 @@ int aiousb_dio_stream_frame (aiousb_device_handle device, unsigned long frame_po
   int (*fptr)(aiousb_device_handle, unsigned int, void *, int, int*);
   unsigned int pipe_index;
   int status;
-  unsigned int this_transfer;
+  int this_transfer;
   
 
   if (device->descriptor.b_dio_stream == 0)
@@ -1457,7 +1457,7 @@ int aiousb_get_scan_inner_adc_bulk(aiousb_device_handle device, uint8_t *config_
       config_buff[0x13] = 1024 / channel_count - 1;
     }
   *ad_buff_length = channel_count * (1 + config_buff[0x13]);
-  *ad_buff = malloc(*ad_buff_length * sizeof(uint16_t));
+  *ad_buff = (uint16_t *) malloc(*ad_buff_length * sizeof(uint16_t));
 
   if (*ad_buff == NULL)
     {
@@ -1600,7 +1600,7 @@ int aiousb_get_scan_inner_adc_dio_stream(aiousb_device_handle device, uint8_t *c
                   uint8_t end_channel, uint32_t time_out_ms)
 {
   struct adc_intermmediate_buff *inter_buff = NULL;
-  int inter_buff_length = ADC_DIO_OVERSAMPLE;
+  uint32_t inter_buff_length = ADC_DIO_OVERSAMPLE;
   int status = 0;
   struct timespec now, end_time;
   int i;
@@ -1611,7 +1611,7 @@ int aiousb_get_scan_inner_adc_dio_stream(aiousb_device_handle device, uint8_t *c
     }
 
   inter_buff_length = ADC_DIO_OVERSAMPLE;
-  inter_buff = malloc(inter_buff_length);
+  inter_buff = (adc_intermmediate_buff *) malloc(inter_buff_length);
 
   if (inter_buff == NULL)
     {
@@ -1664,7 +1664,7 @@ int aiousb_get_scan_inner_adc_dio_stream(aiousb_device_handle device, uint8_t *c
   aiousb_adc_get_config(device, config_buff, config_size);
   config_buff[0x13] = ADC_DIO_OVERSAMPLE - 1;
 
-  *ad_buff = malloc(2*ADC_DIO_OVERSAMPLE);
+  *ad_buff = (uint16_t *)malloc(2*ADC_DIO_OVERSAMPLE);
 
   for (i = 0 ; i < ADC_DIO_OVERSAMPLE ; i++)
     {
@@ -1681,7 +1681,7 @@ int aiousb_get_scan_inner_imm_adcs (aiousb_device_handle device,
                   uint32_t time_out_ms)
 {
   int status;
-  *ad_buff = malloc(device->descriptor.imm_dacs);
+  *ad_buff =(uint16_t *) malloc(device->descriptor.imm_dacs);
   int i;
 
   status = aiousb_generic_vendor_read(device,
@@ -2081,7 +2081,7 @@ int aiousb_adc_range_all(aiousb_device_handle device, uint8_t *gain_codes,
       uint32_t config_size = 0;
 
       config_size = device->descriptor.config_bytes;
-      config_buff = malloc(config_size);
+      config_buff = (uint8_t *)malloc(config_size);
 
       status = aiousb_adc_get_config(device, config_buff, &config_size);
 
@@ -2138,7 +2138,7 @@ int aiousb_adc_set_oversample(aiousb_device_handle device, uint8_t oversample)
     }
 
   config_size = device->descriptor.config_bytes;
-  config_buff = malloc(config_size);
+  config_buff =(uint8_t *) malloc(config_size);
 
   status = aiousb_adc_get_config(device, config_buff, &config_size);
 
@@ -2186,7 +2186,7 @@ int aiousb_adc_range1(aiousb_device_handle device, uint32_t adc_channel,
     }
   
   config_size = device->descriptor.config_bytes;
-  config_buff = malloc(config_size);
+  config_buff = (uint8_t *) malloc(config_size);
 
   status = aiousb_adc_get_config(device, config_buff, &config_size);
 

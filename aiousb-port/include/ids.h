@@ -23,6 +23,10 @@
 #ifndef ACCESIO_LINUX_IDS_H
 #define ACCESIO_LINUX_IDS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef __KERNEL__
 #include <stdint.h>
 #include <stdbool.h>
@@ -34,8 +38,8 @@ struct acces_usb_device_descriptor
 {
     uint16_t pid_unloaded;
     uint16_t pid_loaded;
-    char *name;
-    char * fw_fname;
+    const char *name;
+    const char * fw_fname;
     int counters;
     unsigned int dio_bytes;
     unsigned int dio_config_bits;
@@ -43,7 +47,6 @@ struct acces_usb_device_descriptor
     int b_get_name;
     int b_set_custom_clocks;
     int b_dio_debounce;
-    double root_clock; //TODO: This is a double in the Windows implementation
     int b_dio_stream;
     int b_dio_spi;
     int b_clear_fifo;
@@ -65,34 +68,37 @@ struct acces_usb_device_descriptor
     int dacs_used;
     int b_adc_dio_stream;
     int b_dac_stream;
+    double root_clock; //TODO: This is a double in the Windows implementation
 };
 
 static const struct acces_usb_device_descriptor acces_usb_device_table[] =
 {
-    {
+/*    {
         .pid_unloaded = 0x0001, 
         .pid_loaded = 0x8001, 
         .name = "usb_dio_32", 
         .fw_fname = "ACCESIO-USB-DIO-32.hex",
+        .counters = 3,
         .dio_bytes = 4,
         .tristate = 1,
-        .counters = 3,
+        .b_set_custom_clocks = 1,
         .root_clock = 3000000.0,
         .b_get_name = 1,
-        .b_set_custom_clocks = 1,
+        
         .b_dio_debounce = 1,
-    },
+    },*/
     {
         .pid_unloaded = 0x0004, 
         .pid_loaded = 0x8004, 
-        .name = "usb_dio_32i", 
+        .name = "usb_dio_32i",
         .fw_fname = "ACCESIO-USB-DIO-32I.hex",
+        .counters = 0,
         .dio_bytes = 4,
         .dio_config_bits = 32,
         .tristate = 1,
         .b_get_name = 1,
         .b_set_custom_clocks = 1
-    },
+    }/*,
     {
         .pid_unloaded = 0x0005, 
         .pid_loaded= 0x8005, 
@@ -1770,12 +1776,16 @@ static const struct acces_usb_device_descriptor acces_usb_device_table[] =
         .fw_fname = "ACCESIO-USB-DA12-8E.hex",
         .b_get_name = 1,
         .imm_dacs = 8
-    },
+    },*/
 };
 
 #define NUM_ACCES_USB_DEVICES sizeof(acces_usb_device_table)/sizeof(acces_usb_device_table[0])
 
 // VENDOR ID
 #define ACCESIO_USB_VID 0x1605
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ACCESIO_LINUX_IDS_H
