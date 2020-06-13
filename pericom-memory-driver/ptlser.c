@@ -135,7 +135,8 @@ static  struct pci_device_id	ptlser_pcibrds[] = {
     {PTLSER_VENDOR_ID, PTLSER_DEVICE_8958, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_8},
     {PTLSER_VENDOR_ID, PTLSER_DEVICE_8954, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_4},
     {PTLSER_VENDOR_ID, PTLSER_DEVICE_8952, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_2},
-    {PTLSER_VENDOR_ID, PTLSER_DEVICE_8951, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_1},    
+    {PTLSER_VENDOR_ID, PTLSER_DEVICE_8951, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_1},
+		{0x494f, 0x10dc, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PTLSER_PCI_PORT_4 },
 	{0}
 };
 
@@ -324,8 +325,8 @@ static void	ptlser_start(struct tty_struct *);
 static void	ptlser_hangup(struct tty_struct *);
 
 #if (LINUX_VERSION_CODE >= VERSION_CODE(2,6,0))
-static int	ptlser_tiocmget(struct tty_struct *, struct file *);
-static int	ptlser_tiocmset(struct tty_struct *, struct file *, unsigned int, unsigned int);
+static int	ptlser_tiocmget(struct tty_struct */*, struct file **/);
+static int	ptlser_tiocmset(struct tty_struct */*, struct file **/, unsigned int, unsigned int);
 #else
 static int	ptlser_get_modem_info(struct ptlser_struct *, unsigned int *);
 static int	ptlser_set_modem_info(struct ptlser_struct *, unsigned int, unsigned int *);
@@ -399,7 +400,6 @@ static struct tty_operations ptlser_ops = {
 #endif
 
 
-#ifdef CONFIG_PCI
 static int ptlser_get_PCI_conf(int busnum, int devnum, int board_type, struct ptlser_hwconf *hwconf)
 {
 	int		i;
@@ -412,6 +412,8 @@ static int ptlser_get_PCI_conf(int busnum, int devnum, int board_type, struct pt
 
 	request_mem_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1), "ptlser(MEM)");
 	ioaddress = ioremap(pci_resource_start(pdev,1), pci_resource_len(pdev,1));
+
+	printk (DRIVER_NAME "ioaddress = %p, start=0x%llx ", ioaddress, pci_resource_start(pdev,1));
 	
 	for (i = 0; i < hwconf->ports; i++) {
 		hwconf->ioaddr[i] = ioaddress + (i * PTLSER_MEMORY_RANGE);
@@ -436,7 +438,6 @@ static int ptlser_get_PCI_conf(int busnum, int devnum, int board_type, struct pt
 
 	return 0;
 }
-#endif
 
 
 #if (LINUX_VERSION_CODE >  VERSION_CODE(2,6,19))
@@ -471,7 +472,9 @@ static void ptlser_do_softint(void *private_)
 unsigned char getTxCount(struct ptlser_struct *	info)
 {
 	unsigned char value;
+//	printk(DRIVER_NAME "Reading PTLSER_LTF_OFFSET\n");
 	value = PTLSER_READ_REG(info->base + PTLSER_LTF_OFFSET);
+	//printk(DRIVER_NAME "PTLSER_LTF_OFFSET\n = %d", value);
 	if (value > PTLSER_FIFO_SIZE)
 		value = PTLSER_FIFO_SIZE;
 	return value;
@@ -522,7 +525,7 @@ static int ptlser_open(struct tty_struct * tty, struct file * filp)
 	 * Start up serial port
 	 */
 	info->count++;
-//printk(DRIVER_NAME "port %d  ptlser_open (jiff=%lu).\n", info->port, jiffies);	 
+  printk(DRIVER_NAME "port %d  ptlser_open (jiff=%lu).\n", info->port, jiffies);
 	retval = ptlser_startup(info);
 
 	if ( retval )
@@ -563,6 +566,7 @@ static int ptlser_open(struct tty_struct * tty, struct file * filp)
 	tty->low_latency = 1;
 #endif
 #endif
+	printk(DRIVER_NAME "open completed\n");
 	return 0;
 }
 
@@ -583,7 +587,7 @@ static void ptlser_close(struct tty_struct * tty, struct file * filp)
 #endif
 	unsigned long timeout;
 	unsigned char reg_flag;	
-//printk(DRIVER_NAME "port %d  ptlser_close (jiff=%lu).\n", info->port, jiffies);	 
+  printk(DRIVER_NAME "port %d  ptlser_close (jiff=%lu).\n", info->port, jiffies);
 	PTLSER_LOCK_INIT();
 
 	if ( PORTNO(tty) == PTLSER_PORTS )
@@ -701,7 +705,8 @@ static void ptlser_close(struct tty_struct * tty, struct file * filp)
 	if ( PTLSER_TTY_DRV(flush_buffer) )
 		PTLSER_TTY_DRV(flush_buffer)(tty);
 #else
-	ptlser_flush_buffer(tty);
+	//tty_driver_flush_buffer(tty);
+	//ptlser_flush_buffer(tty);
 	
 #endif
 #if (LINUX_VERSION_CODE < VERSION_CODE(2,6,10))
@@ -2395,7 +2400,7 @@ static void ptlser_send_break(struct ptlser_struct * info, int duration)
 }
 
 #if (LINUX_VERSION_CODE >= VERSION_CODE(2,6,0))
-static int ptlser_tiocmget(struct tty_struct *tty, struct file *file)
+static int ptlser_tiocmget(struct tty_struct *tty/*, struct file *file*/)
 {
 	struct ptlser_struct *info = (struct ptlser_struct *) tty->driver_data;
 	unsigned char control, status;
@@ -2425,7 +2430,7 @@ static int ptlser_tiocmget(struct tty_struct *tty, struct file *file)
 	    ((status & UART_MSR_CTS) ? TIOCM_CTS : 0);
 }
 
-static int ptlser_tiocmset(struct tty_struct *tty, struct file *file, unsigned int set, unsigned int clear)
+static int ptlser_tiocmset(struct tty_struct *tty/*, struct file *file*/, unsigned int set, unsigned int clear)
 {
 	struct ptlser_struct *info = (struct ptlser_struct *) tty->driver_data;
 	PTLSER_LOCK_INIT();
@@ -2579,7 +2584,7 @@ int ptlser_initHw(int board,struct ptlser_hwconf *hwconf)
 
 	n = board*PTLSER_PORTS_PER_BOARD;
 	info = &ptlser_var_table[n];
-    retval = request_irq(hwconf->irq, ptlser_interrupt, IRQ_T(info), "ptlser", info);
+    retval = request_irq(hwconf->irq, ptlser_interrupt, IRQF_SHARED, "ptlser", info);
 
 	if ( retval ) {
 	    printk(DRIVER_NAME "Board %d: %s", board, ptlser_brdname[hwconf->board_type-1]);

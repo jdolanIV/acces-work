@@ -68,11 +68,11 @@
 
 #define RELEVANT_IFLAG(iflag)	(iflag & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK|IXON|IXOFF))
 
-#if (LINUX_VERSION_CODE < VERSION_CODE(2,6,23))
-#define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? SA_SHIRQ : SA_INTERRUPT)
-#else
-#define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : IRQF_DISABLED)
-#endif
+// #if (LINUX_VERSION_CODE < VERSION_CODE(2,6,23))
+// #define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? SA_SHIRQ : SA_INTERRUPT)
+// #else
+// #define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : IRQF_DISABLED)
+// #endif
 
 #ifndef MIN
 #define MIN(a,b)	((a) < (b) ? (a) : (b))
