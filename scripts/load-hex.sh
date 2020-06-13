@@ -9,3 +9,4 @@ DEVICE="${DEVICE%%:}"
 
 echo sudo chmod 777 /dev/bus/usb/003/$DEVICE
 sudo chmod 666 /dev/bus/usb/003/$DEVICE
+
