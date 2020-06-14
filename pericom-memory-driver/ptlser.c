@@ -185,6 +185,7 @@ struct ptlser_hwconf {
 	unsigned long	vector_mask;
 	int		        uart_type;
 	unsigned char	*ioaddr[PTLSER_PORTS_PER_BOARD];
+	unsigned      io_port_addr[PTLSER_PORTS_PER_BOARD];
 	int		        baud_base[PTLSER_PORTS_PER_BOARD];
 	ptlser_pci_info	pciInfo;
 	int		        MaxCanSetBaudRate[PTLSER_PORTS_PER_BOARD];
@@ -199,6 +200,7 @@ struct ptlser_struct {
 #endif
 	int			        port;
 	unsigned char		*base;		/* port base address */
+	unsigned        io_base;
 	int			        irq;		/* port using irq no. */
 	int			        baud_base;	/* max. speed */
 	int			        flags;		/* defined in tty.h */
@@ -370,7 +372,9 @@ static int	ptlser_get_serial_info(struct ptlser_struct *, struct serial_struct *
 static int	ptlser_set_serial_info(struct ptlser_struct *, struct serial_struct *);
 static int	ptlser_get_lsr_info(struct ptlser_struct *, unsigned int *);
 static void	ptlser_send_break(struct ptlser_struct *, int);
+static int ptlser_set_baud_ex(struct ptlser_struct *info, long newspd);
 static int	ptlser_set_baud(struct ptlser_struct *info, long newspd);
+
 
 
 #if (LINUX_VERSION_CODE >= VERSION_CODE(2,6,0))
@@ -406,21 +410,27 @@ static int ptlser_get_PCI_conf(int busnum, int devnum, int board_type, struct pt
 	unsigned char	*ioaddress;
 	struct pci_dev	*pdev=hwconf->pciInfo.pdev;
 
+
 	//io address
 	hwconf->board_type = board_type;
 	hwconf->ports = ptlser_numports[board_type-1];
 
 	request_mem_region(pci_resource_start(pdev, 1), pci_resource_len(pdev, 1), "ptlser(MEM)");
 	ioaddress = ioremap(pci_resource_start(pdev,1), pci_resource_len(pdev,1));
-
 	printk (DRIVER_NAME "ioaddress = %p, start=0x%llx ", ioaddress, pci_resource_start(pdev,1));
+
+	request_region(pci_resource_start(pdev, 0), pci_resource_len(pdev, 0), "ptlser(IO)");
+
+	printk (DRIVER_NAME "region zero start=0x%llx ", pci_resource_start(pdev,0));
 	
 	for (i = 0; i < hwconf->ports; i++) {
 		hwconf->ioaddr[i] = ioaddress + (i * PTLSER_MEMORY_RANGE);
+		hwconf->io_port_addr[i] = pci_resource_start(pdev, 0) + (i * 8);
 		if(i == 3){
 			switch(board_type){
 			case PTLSER_PCIE_PORT_4:
 				hwconf->ioaddr[i] = ioaddress + (PTLSER_PORT8 * PTLSER_MEMORY_RANGE);
+				hwconf->io_port_addr[i] = pci_resource_start(pdev, 0) + 0x38;
 				break;
 			default:
 				break;
@@ -2046,6 +2056,16 @@ static int ptlser_change_speed(struct ptlser_struct *info, struct termios *old_t
 #define B921600 (B460800 +1)
 #endif
 	switch( cflag & (CBAUD | CBAUDEX) ){
+				case B4000000: info->speed = baud = 4000000; break;
+				case B3500000: info->speed = baud = 3500000; break;
+				case B3000000: info->speed = baud = 3000000; break;
+				case B2500000: info->speed = baud = 2500000; break;
+				case B2000000: info->speed = baud = 2000000; break;
+				case B1500000: info->speed = baud = 1500000; break;
+				case B1152000: info->speed = baud = 1152000; break;
+				case B1000000: info->speed = baud = 1000000; break;
+
+
         case B921600 : info->speed = baud = 921600; break;
         case B460800 : info->speed = baud = 460800; break;
         case B230400 : info->speed = baud = 230400; break;
@@ -2069,7 +2089,10 @@ static int ptlser_change_speed(struct ptlser_struct *info, struct termios *old_t
         default: info->speed = baud = 0; break;
 	}
 
-    ptlser_set_baud(info, baud);
+		if (baud > 921600)
+			ptlser_set_baud_ex(info, baud);
+		else
+    	ptlser_set_baud(info, baud);
 
 	/* byte size and parity */
 	switch ( cflag & CSIZE ) {
@@ -2171,6 +2194,83 @@ static int ptlser_change_speed(struct ptlser_struct *info, struct termios *old_t
         return ret;
 }
 
+static int ptlser_set_baud_ex(struct ptlser_struct *info, long newspd)
+{
+	int		i;
+	int		quot = 0;
+	unsigned char	cval;
+	int scr;
+	int actual_baud;
+	int tolerance;
+	int             ret = 0;
+
+	printk(DRIVER_NAME "Enter %s, newspd = %lu\n", __FUNCTION__, newspd);
+
+#if (LINUX_VERSION_CODE < VERSION_CODE(3,7,0))
+	if ( !info->tty || !info->tty->termios )
+		return ret;
+#else
+	if ( !info->tty )
+		return ret;
+#endif
+
+	if ( !(info->base) )
+		return ret;
+
+	info->realbaud = newspd;
+
+	for (scr = 5 ; scr <= 15 ; scr++)
+	{
+		actual_baud = 921600 * 16 /scr;
+		tolerance = actual_baud / 50;
+
+		if ((newspd < actual_baud + tolerance) &&
+			(newspd > actual_baud - tolerance))
+		{
+			printk(DRIVER_NAME "Found match scr = %d\n", scr);
+			break;
+		}
+	}
+	quot = 1;
+
+	info->timeout = (int)((unsigned int)(info->xmit_fifo_size*HZ*10*quot) / (unsigned int)info->baud_base);
+	info->timeout += HZ/50;		/* Add .02 seconds of slop */
+
+	if ( quot ) {
+		info->MCR |= UART_MCR_DTR;
+		PTLSER_WRITE_REG(info->MCR, info->base + UART_MCR);
+	} else {
+		info->MCR &= ~UART_MCR_DTR;
+		PTLSER_WRITE_REG(info->MCR, info->base + UART_MCR);
+		return ret;
+	}
+
+	printk(DRIVER_NAME "info->base = %p, UART_DLL = %d", info->base, UART_DLL);
+
+	// cval = inb(info->io_base + UART_LCR);
+	// outb(cval | UART_LCR_DLAB, info->io_base + UART_LCR);  /* set DLAB */
+	// outb(1, info->io_base + UART_DLL);	    /* LS of divisor */
+	// outb(0, info->io_base + UART_DLM); 	    /* MS of divisor */
+	// outb(scr, info->io_base + 2); 	    /* scr */
+	// outb(cval, info->io_base + UART_LCR);		    /* reset DLAB */
+
+	cval = PTLSER_READ_REG(info->base + UART_LCR);
+	PTLSER_WRITE_REG(cval | UART_LCR_DLAB, info->base + UART_LCR);  /* set DLAB */
+	PTLSER_WRITE_REG(1, info->base + UART_DLL);	    /* LS of divisor */
+	PTLSER_WRITE_REG(0, info->base + UART_DLM); 	    /* MS of divisor */
+	PTLSER_WRITE_REG(16 - scr, info->base + 2); 	    /* scr */
+	PTLSER_WRITE_REG(cval, info->base + UART_LCR);		    /* reset DLAB */
+
+	// cval = PTLSER_READ_REG(info->base + 0x7);
+	// PTLSER_WRITE_REG(cval | 0x80, info->base + 0x7);
+	// PTLSER_WRITE_REG(15, info->base + 0x16);
+	// PTLSER_WRITE_REG(cval, info->base + 0x7);
+
+	PTLSER_WRITE_REG(96, info->base + PTLSER_RTL_OFFSET);
+	//PTLSER_WRITE_REG(256, info->base + PTLSER_RTL_OFFSET);
+
+    return ret;
+}
 
 static int ptlser_set_baud(struct ptlser_struct *info, long newspd)
 {
@@ -2227,6 +2327,8 @@ static int ptlser_set_baud(struct ptlser_struct *info, long newspd)
 
 		return ret;
 	}
+
+	printk(DRIVER_NAME "info->base = %p, UART_DLL = %d", info->base, UART_DLL);
 
 	cval = PTLSER_READ_REG(info->base + UART_LCR);
 	PTLSER_WRITE_REG(cval | UART_LCR_DLAB, info->base + UART_LCR);  /* set DLAB */
@@ -2544,6 +2646,7 @@ int ptlser_initHw(int board,struct ptlser_hwconf *hwconf)
 	for ( i=0; i<hwconf->ports; i++, n++, info++ ) {
 		info->port = n;
 		info->base = hwconf->ioaddr[i];
+		info ->io_base = hwconf->io_port_addr[i];
 		info->irq = hwconf->irq;
 		info->board_type = hwconf->board_type;
 		info->flags = ASYNC_SHARE_IRQ;
