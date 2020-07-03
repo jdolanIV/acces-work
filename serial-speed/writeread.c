@@ -13,6 +13,7 @@
 #include <sys/time.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "writeread.h"
 
@@ -26,6 +27,17 @@ struct write_thread_data{
    int bytesToSend;
    int writtenBytes;
    int iator; // Initiator.  0 = False, 1 = True
+   pthread_cond_t *print;
+   pthread_mutex_t *lock;
+   sem_t *write;
+};
+
+struct print_thread_data {
+    pthread_cond_t print;
+    pthread_mutex_t lock;
+    sem_t write;
+    sem_t read;
+    int terminate;
 };
 
 void usage(char **argv)
@@ -38,6 +50,30 @@ void usage(char **argv)
     fprintf(stdout, "Examples:\n");
     fprintf(stdout, "%s /dev/ttyUSB0 115200 /path/to/somefile.txt\n", argv[0]); 
     fprintf(stdout, "%s /dev/ttyUSB0 115200 \"some text test\"\n", argv[0]); 
+}
+
+void *print_thread_function(void *arg)
+{
+    struct print_thread_data *my_data;
+
+    my_data = (struct print_thread_data *) arg;
+
+    while (!my_data->terminate)
+    {
+        pthread_mutex_lock(&my_data->lock);
+        pthread_cond_wait(&my_data->print, &my_data->lock);
+        pthread_mutex_unlock(&my_data->lock);
+        while (sem_trywait(&my_data->read) == 0)
+        {
+            fprintf(stdout, "R");
+        }
+        while (sem_trywait(&my_data->write) == 0)
+        {
+            fprintf(stdout, "W");
+        }
+        fflush(stdout);
+    }
+    return NULL;
 }
 
 // POSIX threads explained - http://www.ibm.com/developerworks/library/l-posix1.html
@@ -77,7 +113,11 @@ void *write_thread_function(void *arg) {
             fprintf(stdout, "write failed!\n");
             return 0;
         }
-        fprintf(stderr, "   write: %d - %d\n", lastBytesWritten, my_data->writtenBytes);
+        //fprintf(stderr, "   write: %d - %d\n", lastBytesWritten, my_data->writtenBytes);
+        pthread_mutex_lock(my_data->lock);
+        sem_post(my_data->write);
+        pthread_cond_signal(my_data->print);
+        pthread_mutex_unlock(my_data->lock);
     }
     return NULL; //pthread_exit(NULL)
 }
@@ -107,6 +147,17 @@ int main( int argc, char **argv )
 
     struct write_thread_data wrdata;
     pthread_t myWriteThread;
+
+    struct print_thread_data print_data;
+    pthread_t print_thread;
+
+    pthread_cond_init(&print_data.print, NULL);
+    pthread_mutex_init(&print_data.lock, NULL);
+    sem_init(&print_data.read, 0, 0);
+    sem_init(&print_data.write, 0, 0);
+    print_data.terminate = 0;
+
+    pthread_create(&print_thread, NULL, print_thread_function, &print_data);
 
     /* Re: connecting alternative output stream to terminal - 
     * http://coding.derkeiler.com/Archive/C_CPP/comp.lang.c/2009-01/msg01616.html 
@@ -173,6 +224,9 @@ int main( int argc, char **argv )
 
     gettimeofday( &timeStart, NULL );
 
+    wrdata.write = &print_data.write;
+    wrdata.lock = &print_data.lock;
+
     // start the thread for writing.. 
     if ( pthread_create( &myWriteThread, NULL, write_thread_function, (void *) &wrdata) ) {
         printf("error creating thread.");
@@ -210,7 +264,11 @@ int main( int argc, char **argv )
         }
         if (loop_count % 100 == 0)
         {
-            fprintf(stderr, "   read: %d\n", recdBytes);
+            //fprintf(stderr, "   read: %d\n", recdBytes);
+            pthread_mutex_lock(&print_data.lock);
+            sem_post(&print_data.read);
+            pthread_cond_signal(&print_data.print);
+            pthread_mutex_unlock(&print_data.lock);
         }
         loop_count++;
 
@@ -218,8 +276,18 @@ int main( int argc, char **argv )
         //~ usleep(50000);
     }
 
+    pthread_mutex_lock(&print_data.lock);
+    print_data.terminate = 1;
+    pthread_cond_signal(&print_data.print);
+    pthread_mutex_unlock(&print_data.lock);
+
     if ( pthread_join ( myWriteThread, NULL ) ) {
-        printf("error joining thread.");
+        printf("error joining write thread.");
+        abort();
+    }
+
+    if ( pthread_join ( print_thread, NULL ) ) {
+        printf("error joining print thread.");
         abort();
     }
 
@@ -250,6 +318,7 @@ int main( int argc, char **argv )
     fprintf(stdout, "Wrote: %d bytes; Read: %d bytes; Total: %d bytes. \n", sentBytes, recdBytes, totlBytes);
     fprintf(stdout, "Start: %ld s %ld us; End: %ld s %ld us; Delta: %ld s %ld us. \n", timeStart.tv_sec, timeStart.tv_usec, timeEnd.tv_sec, timeEnd.tv_usec, timeDelta.tv_sec, timeDelta.tv_usec);
     fprintf(stdout, "%s baud for 8N1 is %d Bps (bytes/sec).\n", serspeed, (int)expectBps);
+    if (!wrdata.iator ) fprintf(stdout, "NOT THE INITIATOR. Measured speed shouldn't be used.\n");
     fprintf(stdout, "Measured: write %.02f Bps (%.02f%%), read %.02f Bps (%.02f%%), total %.02f Bps.\n", measWriteBps, (measWriteBps/expectBps)*100, measReadBps, (measReadBps/expectBps)*100, totlBytes/deltasec);
 
     return 0;
